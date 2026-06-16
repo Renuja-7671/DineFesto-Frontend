@@ -86,9 +86,7 @@ function WaiterLayout() {
 
   const getRoleBadge = (role) => {
     const roleConfig = {
-      MANAGER: { label: 'Manager', color: 'primary' },
       WAITER: { label: 'Waiter', color: 'success' },
-      CHEF: { label: 'Chef', color: 'warning' },
     };
     return roleConfig[role] || { label: role, color: 'default' };
   };

@@ -38,6 +38,7 @@ import {
 } from '@mui/icons-material';
 import axios from 'axios';
 import { getToken } from '../../utils/auth';
+import { DialogLoadingSpinner, TableLoadingSkeleton } from '../../components/admin/TableLoadingState';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
@@ -378,10 +379,6 @@ function ReviewsManagement() {
       </Card>
 
       <Card>
-        {loading ? (
-          <LinearProgress />
-        ) : (
-          <>
         <TableContainer>
           <Table>
             <TableHead>
@@ -394,7 +391,9 @@ function ReviewsManagement() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {reviews.length === 0 ? (
+              {loading ? (
+                <TableLoadingSkeleton columns={5} rows={rowsPerPage} />
+              ) : reviews.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} align="center">
                     No reviews found
@@ -473,8 +472,6 @@ function ReviewsManagement() {
           onPageChange={handleChangePage}
           onRowsPerPageChange={handleChangeRowsPerPage}
         />
-          </>
-        )}
       </Card>
 
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
@@ -486,7 +483,7 @@ function ReviewsManagement() {
             </Alert>
           )}
           {loadingFormData ? (
-            <LinearProgress sx={{ my: 4 }} />
+            <DialogLoadingSpinner />
           ) : (
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12}>

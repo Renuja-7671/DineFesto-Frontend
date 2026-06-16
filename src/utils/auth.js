@@ -30,8 +30,35 @@ export const isAuthenticated = () => {
   return !!getToken();
 };
 
+export const ADMIN_PORTAL_ROLES = ['ADMIN', 'MANAGER'];
+export const WAITER_PORTAL_ROLES = ['WAITER'];
+export const CHEF_PORTAL_ROLES = ['CHEF'];
+export const STAFF_PORTAL_ROLES = [...WAITER_PORTAL_ROLES, ...CHEF_PORTAL_ROLES];
+
+export const getHomeRouteForRole = (role) => {
+  if (ADMIN_PORTAL_ROLES.includes(role)) {
+    return '/admin/dashboard';
+  }
+
+  if (role === 'CHEF') {
+    return '/chef/leave';
+  }
+
+  if (role === 'WAITER') {
+    return '/waiter/dashboard';
+  }
+
+  if (role === 'CUSTOMER') {
+    return '/customer/dashboard';
+  }
+
+  return '/login';
+};
+
 export const hasRole = (allowedRoles) => {
   const user = getUser();
   if (!user || !user.role) return false;
   return allowedRoles.includes(user.role);
 };
+
+export const isAdminPortalUser = () => hasRole(ADMIN_PORTAL_ROLES);

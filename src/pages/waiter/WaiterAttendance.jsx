@@ -45,6 +45,26 @@ const getVerificationChipColor = (atWorkplace, workplaceConfigured) => {
   return 'default';
 };
 
+const formatClockTime = (hour, minute = 0) => {
+  const date = new Date();
+  date.setHours(hour, minute, 0, 0);
+  return date.toLocaleTimeString('en-LK', { hour: 'numeric', minute: '2-digit' });
+};
+
+const buildFlexiHoursMessage = (policy) => {
+  if (!policy) {
+    return 'Flexi check-in: on time until 30 minutes after your shift start.';
+  }
+
+  const { graceMinutes = 30, morningShiftStartHour = 6, afternoonShiftStartHour = 14 } = policy;
+  const morningCutoffMinute = graceMinutes % 60;
+  const morningCutoffHour = morningShiftStartHour + Math.floor(graceMinutes / 60);
+  const afternoonCutoffMinute = graceMinutes % 60;
+  const afternoonCutoffHour = afternoonShiftStartHour + Math.floor(graceMinutes / 60);
+
+  return `Flexi check-in: mark on time until ${graceMinutes} minutes after shift start (e.g. ${formatClockTime(morningShiftStartHour)} – ${formatClockTime(morningCutoffHour, morningCutoffMinute)}, ${formatClockTime(afternoonShiftStartHour)} – ${formatClockTime(afternoonCutoffHour, afternoonCutoffMinute)}).`;
+};
+
 function WaiterAttendance() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -61,6 +81,7 @@ function WaiterAttendance() {
       totalWorkingHours: 0,
     },
     locationPolicy: null,
+    flexiHoursPolicy: null,
   });
   const [checkingIn, setCheckingIn] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
@@ -103,12 +124,17 @@ function WaiterAttendance() {
       setCheckingIn(true);
       const response = await punchWithLocation(`${API_URL}/employees/attendance/check-in`);
       const verification = response.data.locationVerification;
+      const timing = response.data.timing;
+      const statusMessage =
+        timing?.status === 'LATE'
+          ? 'Checked in as late (after flexi window).'
+          : 'Checked in on time within flexi hours.';
       setSnackbar({
         open: true,
         message: verification?.atWorkplace === false
-          ? 'Checked in, but you were outside the workplace geofence.'
-          : 'Checked in successfully with location recorded.',
-        severity: verification?.atWorkplace === false ? 'warning' : 'success',
+          ? `${statusMessage} You were outside the workplace geofence.`
+          : `${statusMessage} Location recorded.`,
+        severity: verification?.atWorkplace === false || timing?.status === 'LATE' ? 'warning' : 'success',
       });
       fetchAttendance();
     } catch (err) {
@@ -224,6 +250,7 @@ function WaiterAttendance() {
   const todayAttendance = attendanceData.todayAttendance;
   const isCheckedIn = todayAttendance && todayAttendance.checkInTime && !todayAttendance.checkOutTime;
   const locationPolicy = attendanceData.locationPolicy;
+  const flexiHoursPolicy = attendanceData.flexiHoursPolicy;
 
   return (
     <Box>
@@ -260,7 +287,7 @@ function WaiterAttendance() {
         </IconButton>
       </Box>
 
-      <Alert severity="info" icon={<MyLocation />} sx={{ mb: 3, borderRadius: 2 }}>
+      <Alert severity="info" icon={<MyLocation />} sx={{ mb: 2, borderRadius: 2 }}>
         Check-in and check-out require your device location for workplace verification.
         {locationPolicy?.workplaceConfigured && locationPolicy?.enforceGeofence && (
           <> You must be within {locationPolicy.allowedRadiusMeters}m of the restaurant.</>
@@ -271,6 +298,10 @@ function WaiterAttendance() {
         {!locationPolicy?.workplaceConfigured && (
           <> Location is saved for admin review. Ask your manager to configure workplace coordinates.</>
         )}
+      </Alert>
+
+      <Alert severity="info" icon={<AccessTime />} sx={{ mb: 3, borderRadius: 2 }}>
+        {buildFlexiHoursMessage(flexiHoursPolicy)}
       </Alert>
 
       {/* Today's Attendance Card */}

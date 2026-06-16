@@ -1,10 +1,11 @@
 import { lazy, Suspense } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import ProtectedRoute from './components/ProtectedRoute';
 import PageLoader from './components/ui/PageLoader';
 import AdminLayout from './components/admin/AdminLayout';
 import WaiterLayout from './components/waiter/WaiterLayout';
+import ChefLayout from './components/chef/ChefLayout';
 
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const SignUpPage = lazy(() => import('./pages/SignUpPage'));
@@ -31,6 +32,8 @@ const WaiterAttendance = lazy(() => import('./pages/waiter/WaiterAttendance'));
 const WaiterSchedule = lazy(() => import('./pages/waiter/WaiterSchedule'));
 const WaiterLeave = lazy(() => import('./pages/waiter/WaiterLeave'));
 
+const ChefLeave = lazy(() => import('./pages/chef/ChefLeave'));
+
 function LazyPage({ children }) {
   return <Suspense fallback={<PageLoader />}>{children}</Suspense>;
 }
@@ -49,7 +52,7 @@ function App() {
         <Route
           path="/admin"
           element={
-            <ProtectedRoute allowedRoles={['ADMIN']}>
+            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
               <AdminLayout />
             </ProtectedRoute>
           }
@@ -71,7 +74,7 @@ function App() {
         <Route
           path="/waiter"
           element={
-            <ProtectedRoute allowedRoles={['MANAGER', 'WAITER', 'CHEF']}>
+            <ProtectedRoute allowedRoles={['WAITER']}>
               <WaiterLayout />
             </ProtectedRoute>
           }
@@ -82,6 +85,18 @@ function App() {
           <Route path="attendance" element={<LazyPage><WaiterAttendance /></LazyPage>} />
           <Route path="schedule" element={<LazyPage><WaiterSchedule /></LazyPage>} />
           <Route path="leave" element={<LazyPage><WaiterLeave /></LazyPage>} />
+        </Route>
+
+        <Route
+          path="/chef"
+          element={
+            <ProtectedRoute allowedRoles={['CHEF']}>
+              <ChefLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<Navigate to="leave" replace />} />
+          <Route path="leave" element={<LazyPage><ChefLeave /></LazyPage>} />
         </Route>
       </Routes>
     </>

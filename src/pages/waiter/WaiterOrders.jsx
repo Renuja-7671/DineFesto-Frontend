@@ -155,7 +155,7 @@ function WaiterOrders() {
       return chefFlow[currentStatus] || [];
     }
     
-    // For WAITER and MANAGER
+    // For WAITER
     const waiterFlow = {
       PENDING: [], // Use "Attend" button instead
       PREPARING: ['READY', 'CANCELLED'],
@@ -169,11 +169,6 @@ function WaiterOrders() {
 
   // Check if current user can update this order
   const canUpdateOrder = (order) => {
-    // Managers can update any order
-    if (user.role === 'MANAGER' || user.role === 'ADMIN') {
-      return true;
-    }
-    
     // Chefs can update orders that are in PREPARING status
     if (user.role === 'CHEF' && order.status === 'PREPARING') {
       return true;

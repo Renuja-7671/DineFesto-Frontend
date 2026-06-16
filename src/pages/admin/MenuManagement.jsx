@@ -12,7 +12,6 @@ import {
   DialogTitle,
   Grid,
   IconButton,
-  LinearProgress,
   MenuItem,
   TextField,
   Typography,
@@ -36,6 +35,7 @@ import {
 } from '@mui/icons-material';
 import axios from 'axios';
 import { getToken } from '../../utils/auth';
+import { DialogLoadingSpinner, GridLoadingSkeleton } from '../../components/admin/TableLoadingState';
 import { uploadMenuImage, deleteMenuImage, getMenuImageUrl } from '../../utils/supabase';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
@@ -424,7 +424,7 @@ function MenuManagement() {
 
       {/* Menu Items Grid */}
       {loading ? (
-        <LinearProgress />
+        <GridLoadingSkeleton items={6} />
       ) : (
         <Box>
           {Object.entries(groupedMenuItems).map(([categoryName, items]) => (
@@ -532,7 +532,7 @@ function MenuManagement() {
             </Alert>
           )}
           {loadingFormData ? (
-            <LinearProgress sx={{ my: 4 }} />
+            <DialogLoadingSpinner />
           ) : (
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12}>

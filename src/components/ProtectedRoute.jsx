@@ -1,5 +1,5 @@
 import { Navigate } from 'react-router-dom';
-import { isAuthenticated, hasRole } from '../utils/auth';
+import { getHomeRouteForRole, getUser, isAuthenticated, hasRole } from '../utils/auth';
 
 function ProtectedRoute({ children, allowedRoles = [] }) {
   if (!isAuthenticated()) {
@@ -7,7 +7,8 @@ function ProtectedRoute({ children, allowedRoles = [] }) {
   }
 
   if (allowedRoles.length > 0 && !hasRole(allowedRoles)) {
-    return <Navigate to="/" replace />;
+    const user = getUser();
+    return <Navigate to={getHomeRouteForRole(user?.role)} replace />;
   }
 
   return children;

@@ -589,8 +589,8 @@ function ProfileManagement() {
                     </Grid>
                   </Grid>
 
-                  {/* Recent Orders Processed - Only show for Managers and Waiters */}
-                  {profile?.role !== 'ADMIN' && (
+                  {/* Recent Orders Processed - Only show for waiters */}
+                  {profile?.role === 'WAITER' && (
                     <Card>
                       <CardContent>
                         <Typography variant="h6" gutterBottom>

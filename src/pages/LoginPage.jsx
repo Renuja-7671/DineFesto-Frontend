@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Button } from '../components/ui/button';
@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Loader2, UtensilsCrossed, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import logo from '../assets/logo.png';
+import { getHomeRouteForRole, getUser, isAuthenticated } from '../utils/auth';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
@@ -17,6 +18,15 @@ function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      return;
+    }
+
+    const user = getUser();
+    navigate(getHomeRouteForRole(user?.role), { replace: true });
+  }, [navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -33,22 +43,7 @@ function LoginPage() {
       localStorage.setItem('user', JSON.stringify(user));
 
       toast.success('Login successful!');
-
-      switch (user.role) {
-        case 'ADMIN':
-          navigate('/admin/dashboard');
-          break;
-        case 'MANAGER':
-        case 'WAITER':
-        case 'CHEF':
-          navigate('/waiter/dashboard');
-          break;
-        case 'CUSTOMER':
-          navigate('/customer/dashboard');
-          break;
-        default:
-          navigate('/');
-      }
+      navigate(getHomeRouteForRole(user.role));
     } catch (error) {
       console.error('Login error:', error);
       toast.error(

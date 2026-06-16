@@ -11,7 +11,6 @@ import {
   DialogTitle,
   Grid,
   IconButton,
-  LinearProgress,
   MenuItem,
   Paper,
   Table,
@@ -44,11 +43,11 @@ import {
 } from '@mui/icons-material';
 import axios from 'axios';
 import { getToken } from '../../utils/auth';
+import { TableLoadingSkeleton } from '../../components/admin/TableLoadingState';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 const roleColors = {
-  MANAGER: 'primary',
   WAITER: 'success',
   CHEF: 'warning',
 };
@@ -355,25 +354,24 @@ function EmployeeManagement() {
 
       {/* Employee Table */}
       <Paper elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
-        {loading ? (
-          <LinearProgress />
-        ) : (
-          <>
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Employee</TableCell>
-                    <TableCell>Contact</TableCell>
-                    <TableCell>Role</TableCell>
-                    <TableCell>Designation</TableCell>
-                    <TableCell>Salary</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell align="right">Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {employees.map((employee) => (
+        <TableContainer>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Employee</TableCell>
+                <TableCell>Contact</TableCell>
+                <TableCell>Role</TableCell>
+                <TableCell>Designation</TableCell>
+                <TableCell>Salary</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell align="right">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {loading ? (
+                <TableLoadingSkeleton columns={7} rows={rowsPerPage} />
+              ) : (
+                employees.map((employee) => (
                       <TableRow key={employee.id} hover>
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -449,21 +447,20 @@ function EmployeeManagement() {
                           </Tooltip>
                         </TableCell>
                       </TableRow>
-                    ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-            <TablePagination
-              rowsPerPageOptions={[5, 10, 25]}
-              component="div"
-              count={totalCount}
-              rowsPerPage={rowsPerPage}
-              page={page}
-              onPageChange={handleChangePage}
-              onRowsPerPageChange={handleChangeRowsPerPage}
-            />
-          </>
-        )}
+                    ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        <TablePagination
+          rowsPerPageOptions={[5, 10, 25]}
+          component="div"
+          count={totalCount}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+        />
       </Paper>
 
       {/* Add/Edit Employee Dialog */}
@@ -545,7 +542,6 @@ function EmployeeManagement() {
                 onChange={handleChange}
                 disabled={editMode}
               >
-                <MenuItem value="MANAGER">Manager</MenuItem>
                 <MenuItem value="WAITER">Waiter</MenuItem>
                 <MenuItem value="CHEF">Chef</MenuItem>
               </TextField>
