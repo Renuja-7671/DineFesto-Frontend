@@ -20,6 +20,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TablePagination,
   MenuItem,
   InputAdornment,
   Tooltip,
@@ -84,7 +85,9 @@ const buildReservationDateTime = (dateStr, timeStr) => {
 
 function ReservationsManagement() {
   const [reservations, setReservations] = useState([]);
-  const [filteredReservations, setFilteredReservations] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [customers, setCustomers] = useState([]);
   const [config, setConfig] = useState(DEFAULT_CONFIG);
   const [loading, setLoading] = useState(true);
@@ -149,15 +152,18 @@ function ReservationsManagement() {
   );
 
   useEffect(() => {
-    fetchReservations();
     fetchCustomers();
     fetchStats();
     fetchConfig();
   }, []);
 
   useEffect(() => {
-    filterReservations();
-  }, [reservations, searchQuery, statusFilter]);
+    const timer = setTimeout(() => {
+      fetchReservations();
+    }, searchQuery ? 300 : 0);
+
+    return () => clearTimeout(timer);
+  }, [page, rowsPerPage, statusFilter, searchQuery]);
 
   const fetchConfig = async () => {
     try {
@@ -172,14 +178,32 @@ function ReservationsManagement() {
   };
 
   const fetchReservations = async () => {
+    setLoading(true);
     try {
+      const params = {
+        page: page + 1,
+        limit: rowsPerPage,
+      };
+
+      if (statusFilter !== 'ALL') {
+        params.status = statusFilter;
+      }
+
+      if (searchQuery.trim()) {
+        params.search = searchQuery.trim();
+      }
+
       const response = await axios.get(`${API_URL}/reservations`, {
         headers: { Authorization: `Bearer ${getToken()}` },
+        params,
       });
-      setReservations(response.data.data);
-      setLoading(false);
+
+      setReservations(response.data.data || []);
+      setTotalCount(response.data.pagination?.total || 0);
+      setError('');
     } catch (err) {
       setError('Failed to fetch reservations');
+    } finally {
       setLoading(false);
     }
   };
@@ -204,27 +228,6 @@ function ReservationsManagement() {
     } catch (err) {
       console.error('Failed to fetch stats:', err);
     }
-  };
-
-  const filterReservations = () => {
-    let filtered = [...reservations];
-
-    if (searchQuery) {
-      filtered = filtered.filter((reservation) => {
-        const customerName = reservation.customer?.fullName || reservation.guestName || '';
-        const tableNum = reservation.tableNumber?.toString() || '';
-        return (
-          customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          tableNum.includes(searchQuery)
-        );
-      });
-    }
-
-    if (statusFilter !== 'ALL') {
-      filtered = filtered.filter((reservation) => reservation.status === statusFilter);
-    }
-
-    setFilteredReservations(filtered);
   };
 
   const resetWizard = () => {
@@ -859,7 +862,10 @@ function ReservationsManagement() {
                 fullWidth
                 placeholder="Search by customer name or table number..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setPage(0);
+                }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start"><SearchIcon /></InputAdornment>
@@ -873,7 +879,10 @@ function ReservationsManagement() {
                 select
                 label="Filter by Status"
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setPage(0);
+                }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start"><FilterIcon /></InputAdornment>
@@ -910,12 +919,12 @@ function ReservationsManagement() {
                 <TableRow>
                   <TableCell colSpan={8} align="center">Loading...</TableCell>
                 </TableRow>
-              ) : filteredReservations.length === 0 ? (
+              ) : reservations.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} align="center">No reservations found</TableCell>
                 </TableRow>
               ) : (
-                filteredReservations.map((reservation) => (
+                reservations.map((reservation) => (
                   <TableRow
                     key={reservation.reservationId}
                     hover
@@ -1036,6 +1045,18 @@ function ReservationsManagement() {
             </TableBody>
           </Table>
         </TableContainer>
+        <TablePagination
+          rowsPerPageOptions={[5, 10, 25, 50]}
+          component="div"
+          count={totalCount}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={(event, newPage) => setPage(newPage)}
+          onRowsPerPageChange={(event) => {
+            setRowsPerPage(parseInt(event.target.value, 10));
+            setPage(0);
+          }}
+        />
       </Card>
 
       {/* New Reservation Wizard Dialog */}

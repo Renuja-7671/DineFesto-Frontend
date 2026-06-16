@@ -43,6 +43,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 function MenuManagement() {
   const [menuItems, setMenuItems] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [loadingFormData, setLoadingFormData] = useState(false);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
@@ -70,7 +71,6 @@ function MenuManagement() {
 
   useEffect(() => {
     fetchMenuItems();
-    fetchCategories();
   }, []);
 
   const fetchMenuItems = async () => {
@@ -98,6 +98,16 @@ function MenuManagement() {
       setCategories(response.data.data || []);
     } catch (err) {
       console.error('Error fetching categories:', err);
+      setError('Failed to load categories');
+    }
+  };
+
+  const loadFormCategories = async () => {
+    setLoadingFormData(true);
+    try {
+      await fetchCategories();
+    } finally {
+      setLoadingFormData(false);
     }
   };
 
@@ -109,11 +119,9 @@ function MenuManagement() {
   }, []);
 
   const handleOpenDialog = useCallback((item = null) => {
-    console.log('🔵 Opening dialog', { editMode: !!item, item });
-    
     if (item) {
       setEditMode(true);
-      const formDataToSet = {
+      setFormData({
         id: item.id,
         name: item.name || '',
         description: item.description || '',
@@ -125,14 +133,12 @@ function MenuManagement() {
         isVegan: item.isVegan || false,
         spicyLevel: item.spicyLevel || 0,
         preparationTime: item.preparationTime || '',
-      };
-      console.log('📝 Setting form data:', formDataToSet);
-      setFormData(formDataToSet);
+      });
       setImagePreview(item.imageUrl || '');
       setOldImagePath(item.imageUrl || '');
     } else {
       setEditMode(false);
-      const emptyFormData = {
+      setFormData({
         id: null,
         name: '',
         description: '',
@@ -144,9 +150,7 @@ function MenuManagement() {
         isVegan: false,
         spicyLevel: 0,
         preparationTime: '',
-      };
-      console.log('📝 Setting empty form data');
-      setFormData(emptyFormData);
+      });
       setImagePreview('');
       setOldImagePath('');
     }
@@ -154,6 +158,7 @@ function MenuManagement() {
     setOpenDialog(true);
     setError('');
     setFormErrors({});
+    loadFormCategories();
   }, []);
 
   const handleCloseDialog = useCallback(() => {
@@ -266,10 +271,7 @@ function MenuManagement() {
   }, [filteredMenuItems]);
 
   const handleSubmit = async () => {
-    console.log('🔵 Submit clicked', { editMode, formData });
-    
     if (!validateForm()) {
-      console.log('❌ Validation failed', formErrors);
       return;
     }
 
@@ -283,19 +285,14 @@ function MenuManagement() {
 
       // Upload new image if selected
       if (selectedImage) {
-        console.log('📤 Uploading image...', selectedImage.name);
         const uploadResult = await uploadMenuImage(selectedImage);
         if (uploadResult) {
           imageUrl = uploadResult.url;
-          console.log('✅ Image uploaded:', imageUrl);
-          
-          // Delete old image if updating and had an old image
+
           if (editMode && oldImagePath && oldImagePath.includes('supabase')) {
-            console.log('🗑️ Deleting old image:', oldImagePath);
             await deleteMenuImage(oldImagePath);
           }
         } else {
-          console.error('❌ Image upload failed');
           setError('Failed to upload image. Please try again.');
           setUploading(false);
           setLoading(false);
@@ -316,22 +313,16 @@ function MenuManagement() {
         preparationTime: parseInt(formData.preparationTime) || null,
       };
 
-      console.log('📦 Payload:', payload);
-
       if (editMode) {
-        console.log('🔄 Updating menu item:', formData.id);
         await axios.put(`${API_URL}/menu/${formData.id}`, payload, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setSuccess('Menu item updated successfully!');
-        console.log('✅ Update successful');
       } else {
-        console.log('➕ Creating new menu item');
         await axios.post(`${API_URL}/menu`, payload, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setSuccess('Menu item created successfully!');
-        console.log('✅ Create successful');
       }
 
       await fetchMenuItems();
@@ -540,6 +531,9 @@ function MenuManagement() {
               {error}
             </Alert>
           )}
+          {loadingFormData ? (
+            <LinearProgress sx={{ my: 4 }} />
+          ) : (
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12}>
               <TextField
@@ -751,10 +745,11 @@ function MenuManagement() {
               />
             </Grid>
           </Grid>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
-          <Button onClick={handleSubmit} variant="contained" disabled={loading}>
+          <Button onClick={handleCloseDialog} disabled={loadingFormData}>Cancel</Button>
+          <Button onClick={handleSubmit} variant="contained" disabled={loading || loadingFormData}>
             {editMode ? 'Update' : 'Create'}
           </Button>
         </DialogActions>

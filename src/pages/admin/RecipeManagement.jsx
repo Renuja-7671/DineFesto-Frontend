@@ -20,6 +20,8 @@ import {
   TextField,
   Tooltip,
   Typography,
+  LinearProgress,
+  CircularProgress,
 } from '@mui/material';
 import { Add, Delete, Refresh, Save, WarningAmber as LowStockIcon } from '@mui/icons-material';
 import axios from 'axios';
@@ -27,14 +29,17 @@ import { getToken } from '../../utils/auth';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
-const makeRow = () => ({ inventoryId: '', quantityUsed: '' });
+const makeRow = () => ({ inventoryId: '', quantityUsed: '', unit: '' });
 
 function RecipeManagement() {
   const [menuItems, setMenuItems] = useState([]);
   const [inventoryItems, setInventoryItems] = useState([]);
+  const [inventoryLoaded, setInventoryLoaded] = useState(false);
+  const [loadingInventory, setLoadingInventory] = useState(false);
   const [selectedMenuItemId, setSelectedMenuItemId] = useState('');
   const [recipeRows, setRecipeRows] = useState([makeRow()]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadingRecipe, setLoadingRecipe] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -48,30 +53,56 @@ function RecipeManagement() {
   );
 
   useEffect(() => {
-    const loadInitial = async () => {
+    const loadMenuItems = async () => {
       try {
         setLoading(true);
-        const [menuRes, inventoryRes] = await Promise.all([
-          axios.get(`${API_URL}/menu`, { headers: authHeaders }),
-          axios.get(`${API_URL}/inventory`, { headers: authHeaders }),
-        ]);
-
+        setError('');
+        const menuRes = await axios.get(`${API_URL}/menu`, { headers: authHeaders });
         const menuData = menuRes.data?.data || [];
         setMenuItems(menuData);
-        setInventoryItems(inventoryRes.data?.data || []);
 
         if (menuData.length > 0) {
           setSelectedMenuItemId(String(menuData[0].id));
         }
       } catch (err) {
-        setError(err.response?.data?.message || 'Failed to load menu and inventory data');
+        setError(err.response?.data?.message || 'Failed to load menu items');
       } finally {
         setLoading(false);
       }
     };
 
-    loadInitial();
+    loadMenuItems();
   }, [authHeaders]);
+
+  const fetchInventoryItems = async ({ lowStock = false } = {}) => {
+    setLoadingInventory(true);
+    try {
+      const params = lowStock ? { lowStock: 'true' } : {};
+      const inventoryRes = await axios.get(`${API_URL}/inventory`, {
+        headers: authHeaders,
+        params,
+      });
+      setInventoryItems(inventoryRes.data?.data || []);
+      setInventoryLoaded(true);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to load inventory items');
+    } finally {
+      setLoadingInventory(false);
+    }
+  };
+
+  const loadInventoryIfNeeded = async () => {
+    if (inventoryLoaded || loadingInventory) {
+      return;
+    }
+    await fetchInventoryItems({ lowStock: lowStockOnly });
+  };
+
+  const handleLowStockToggle = (next) => {
+    setLowStockOnly(next);
+    setInventoryLoaded(false);
+    fetchInventoryItems({ lowStock: next });
+  };
 
   useEffect(() => {
     const fetchRecipe = async () => {
@@ -80,7 +111,7 @@ function RecipeManagement() {
       }
 
       try {
-        setLoading(true);
+        setLoadingRecipe(true);
         setError('');
         const response = await axios.get(`${API_URL}/inventory/recipes/${selectedMenuItemId}`, {
           headers: authHeaders,
@@ -96,12 +127,14 @@ function RecipeManagement() {
           recipe.map((row) => ({
             inventoryId: String(row.inventoryId),
             quantityUsed: String(row.quantityUsed),
+            unit: row.inventory?.unit || '',
+            itemName: row.inventory?.itemName || '',
           })),
         );
       } catch (err) {
         setError(err.response?.data?.message || 'Failed to load ingredients');
       } finally {
-        setLoading(false);
+        setLoadingRecipe(false);
       }
     };
 
@@ -110,11 +143,30 @@ function RecipeManagement() {
 
   const handleRecipeRowChange = (index, key, value) => {
     setRecipeRows((prev) =>
-      prev.map((row, rowIndex) => (rowIndex === index ? { ...row, [key]: value } : row)),
+      prev.map((row, rowIndex) => {
+        if (rowIndex !== index) {
+          return row;
+        }
+
+        if (key === 'inventoryId') {
+          const selectedInventory = inventoryItems.find(
+            (inventoryItem) => String(inventoryItem.inventoryId) === value,
+          );
+          return {
+            ...row,
+            inventoryId: value,
+            unit: selectedInventory?.unit || '',
+            itemName: selectedInventory?.itemName || '',
+          };
+        }
+
+        return { ...row, [key]: value };
+      }),
     );
   };
 
   const handleAddRow = () => {
+    loadInventoryIfNeeded();
     setRecipeRows((prev) => [...prev, makeRow()]);
   };
 
@@ -168,11 +220,27 @@ function RecipeManagement() {
 
   // Derived: list shown in ingredient dropdowns
   const visibleInventoryItems = useMemo(() => {
-    if (!lowStockOnly) return inventoryItems;
+    if (!inventoryLoaded) {
+      return [];
+    }
+    if (!lowStockOnly) {
+      return inventoryItems;
+    }
     return inventoryItems.filter(
       (item) => parseFloat(item.quantity) <= parseFloat(item.reorderLevel),
     );
-  }, [inventoryItems, lowStockOnly]);
+  }, [inventoryItems, inventoryLoaded, lowStockOnly]);
+
+  if (loading) {
+    return (
+      <Box>
+        <Typography variant="h4" sx={{ fontWeight: 700, mb: 3 }}>
+          Ingredients
+        </Typography>
+        <LinearProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box>
@@ -206,7 +274,7 @@ function RecipeManagement() {
               transition: 'all 0.25s ease',
               cursor: 'pointer',
             }}
-            onClick={() => setLowStockOnly((v) => !v)}
+            onClick={() => handleLowStockToggle(!lowStockOnly)}
           >
             <LowStockIcon
               fontSize="small"
@@ -226,7 +294,10 @@ function RecipeManagement() {
             <Switch
               size="small"
               checked={lowStockOnly}
-              onChange={(e) => { e.stopPropagation(); setLowStockOnly(e.target.checked); }}
+              onChange={(e) => {
+                e.stopPropagation();
+                handleLowStockToggle(e.target.checked);
+              }}
               color="warning"
               sx={{ ml: -0.5 }}
             />
@@ -255,7 +326,7 @@ function RecipeManagement() {
                 label="Menu Item"
                 value={selectedMenuItemId}
                 onChange={(event) => setSelectedMenuItemId(event.target.value)}
-                disabled={loading || menuItems.length === 0}
+                disabled={loadingRecipe || menuItems.length === 0}
               >
                 {menuItems.map((item) => (
                   <MenuItem key={item.id} value={String(item.id)}>
@@ -269,7 +340,7 @@ function RecipeManagement() {
                 <Button startIcon={<Refresh />} onClick={handleReset} variant="outlined">
                   Reset
                 </Button>
-                <Button startIcon={<Save />} onClick={handleSave} variant="contained" disabled={saving || loading}>
+                <Button startIcon={<Save />} onClick={handleSave} variant="contained" disabled={saving || loadingRecipe}>
                   Save Ingredients
                 </Button>
               </Stack>
@@ -277,6 +348,8 @@ function RecipeManagement() {
           </Grid>
         </CardContent>
       </Card>
+
+      {loadingRecipe && <LinearProgress sx={{ mb: 2 }} />}
 
       <Paper>
         <Table>
@@ -308,14 +381,22 @@ function RecipeManagement() {
                         handleRecipeRowChange(index, 'inventoryId', event.target.value)
                       }
                       placeholder="Choose inventory item"
-                      SelectProps={{ displayEmpty: true }}
+                      SelectProps={{
+                        displayEmpty: true,
+                        onOpen: loadInventoryIfNeeded,
+                      }}
                       helperText={
-                        lowStockOnly && visibleInventoryItems.length === 0
-                          ? 'No low-stock items found'
-                          : undefined
+                        !inventoryLoaded
+                          ? 'Open to load inventory items'
+                          : lowStockOnly && visibleInventoryItems.length === 0
+                            ? 'No low-stock items found'
+                            : undefined
                       }
                     >
-                      {visibleInventoryItems.length === 0 && (
+                      {!inventoryLoaded && row.inventoryId && (
+                        <MenuItem value={row.inventoryId}>{row.itemName || 'Selected ingredient'}</MenuItem>
+                      )}
+                      {inventoryLoaded && visibleInventoryItems.length === 0 && (
                         <MenuItem value="" disabled>
                           <em>
                             {lowStockOnly
@@ -374,7 +455,7 @@ function RecipeManagement() {
                       }
                     />
                   </TableCell>
-                  <TableCell>{selectedInventory?.unit || '-'}</TableCell>
+                  <TableCell>{selectedInventory?.unit || row.unit || '-'}</TableCell>
                   <TableCell align="right">
                     <IconButton color="error" onClick={() => handleRemoveRow(index)}>
                       <Delete />
@@ -386,10 +467,11 @@ function RecipeManagement() {
           </TableBody>
         </Table>
 
-        <Box sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+        <Box sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 2 }}>
           <Button startIcon={<Add />} onClick={handleAddRow}>
             Add Ingredient
           </Button>
+          {loadingInventory && <CircularProgress size={20} />}
         </Box>
       </Paper>
     </Box>

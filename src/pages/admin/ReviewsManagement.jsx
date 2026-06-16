@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Grid,
   Card,
@@ -18,6 +18,7 @@ import {
   TableCell,
   TableContainer,
   TableHead,
+  TablePagination,
   TableRow,
   MenuItem,
   InputAdornment,
@@ -42,10 +43,13 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 function ReviewsManagement() {
   const [reviews, setReviews] = useState([]);
-  const [filteredReviews, setFilteredReviews] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [customers, setCustomers] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
+  const [loadingFormData, setLoadingFormData] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [openDialog, setOpenDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [ratingFilter, setRatingFilter] = useState('ALL');
@@ -64,25 +68,43 @@ function ReviewsManagement() {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    fetchReviews();
-    fetchCustomers();
-    fetchMenuItems();
     fetchStats();
   }, []);
 
   useEffect(() => {
-    filterReviews();
-  }, [reviews, searchQuery, ratingFilter]);
+    const timer = setTimeout(() => {
+      fetchReviews();
+    }, searchQuery ? 300 : 0);
+
+    return () => clearTimeout(timer);
+  }, [page, rowsPerPage, searchQuery, ratingFilter]);
 
   const fetchReviews = async () => {
+    setLoading(true);
     try {
+      const params = {
+        page: page + 1,
+        limit: rowsPerPage,
+      };
+
+      if (ratingFilter !== 'ALL') {
+        params.rating = ratingFilter;
+      }
+
+      if (searchQuery.trim()) {
+        params.search = searchQuery.trim();
+      }
+
       const response = await axios.get(`${API_URL}/reviews`, {
         headers: { Authorization: `Bearer ${getToken()}` },
+        params,
       });
-      setReviews(response.data.data);
-      setLoading(false);
+      setReviews(response.data.data || []);
+      setTotalCount(response.data.pagination?.total || 0);
+      setError('');
     } catch (err) {
       setError('Failed to fetch reviews');
+    } finally {
       setLoading(false);
     }
   };
@@ -100,10 +122,21 @@ function ReviewsManagement() {
 
   const fetchMenuItems = async () => {
     try {
-      const response = await axios.get(`${API_URL}/menu`);
+      const response = await axios.get(`${API_URL}/menu`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
       setMenuItems(response.data.data || []);
     } catch (err) {
       console.error('Failed to fetch menu items:', err);
+    }
+  };
+
+  const loadNewReviewFormData = async () => {
+    setLoadingFormData(true);
+    try {
+      await Promise.all([fetchCustomers(), fetchMenuItems()]);
+    } finally {
+      setLoadingFormData(false);
     }
   };
 
@@ -118,29 +151,14 @@ function ReviewsManagement() {
     }
   };
 
-  const filterReviews = () => {
-    let filtered = [...reviews];
+  const handleChangePage = useCallback((event, newPage) => {
+    setPage(newPage);
+  }, []);
 
-    if (searchQuery) {
-      filtered = filtered.filter((review) => {
-        const customerName = review.customer?.fullName?.toLowerCase() || '';
-        const menuItemName = review.menuItem?.name?.toLowerCase() || '';
-        const comment = review.comment?.toLowerCase() || '';
-        const query = searchQuery.toLowerCase();
-        return (
-          customerName.includes(query) ||
-          menuItemName.includes(query) ||
-          comment.includes(query)
-        );
-      });
-    }
-
-    if (ratingFilter !== 'ALL') {
-      filtered = filtered.filter((review) => review.rating === parseInt(ratingFilter, 10));
-    }
-
-    setFilteredReviews(filtered);
-  };
+  const handleChangeRowsPerPage = useCallback((event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  }, []);
 
   const handleOpenDialog = () => {
     setFormData({
@@ -151,6 +169,7 @@ function ReviewsManagement() {
     });
     setOpenDialog(true);
     setError('');
+    loadNewReviewFormData();
   };
 
   const handleCloseDialog = () => {
@@ -315,7 +334,10 @@ function ReviewsManagement() {
                 fullWidth
                 placeholder="Search by customer, menu item, or comment..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setPage(0);
+                }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -331,7 +353,10 @@ function ReviewsManagement() {
                 select
                 label="Filter by Rating"
                 value={ratingFilter}
-                onChange={(e) => setRatingFilter(e.target.value)}
+                onChange={(e) => {
+                  setRatingFilter(e.target.value);
+                  setPage(0);
+                }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -353,6 +378,10 @@ function ReviewsManagement() {
       </Card>
 
       <Card>
+        {loading ? (
+          <LinearProgress />
+        ) : (
+          <>
         <TableContainer>
           <Table>
             <TableHead>
@@ -365,20 +394,14 @@ function ReviewsManagement() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={5} align="center">
-                    Loading...
-                  </TableCell>
-                </TableRow>
-              ) : filteredReviews.length === 0 ? (
+              {reviews.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} align="center">
                     No reviews found
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredReviews.map((review) => (
+                reviews.map((review) => (
                   <TableRow key={review.reviewId} hover>
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -441,6 +464,17 @@ function ReviewsManagement() {
             </TableBody>
           </Table>
         </TableContainer>
+        <TablePagination
+          rowsPerPageOptions={[5, 10, 25, 50]}
+          component="div"
+          count={totalCount}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+        />
+          </>
+        )}
       </Card>
 
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
@@ -451,6 +485,9 @@ function ReviewsManagement() {
               {error}
             </Alert>
           )}
+          {loadingFormData ? (
+            <LinearProgress sx={{ my: 4 }} />
+          ) : (
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12}>
               <TextField
@@ -478,7 +515,7 @@ function ReviewsManagement() {
                 required
               >
                 {menuItems.map((item) => (
-                  <MenuItem key={item.itemId} value={item.itemId}>
+                  <MenuItem key={item.id} value={item.id}>
                     {item.name} - ${item.price}
                   </MenuItem>
                 ))}
@@ -508,10 +545,11 @@ function ReviewsManagement() {
               />
             </Grid>
           </Grid>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
-          <Button onClick={handleSubmit} variant="contained">
+          <Button onClick={handleCloseDialog} disabled={loadingFormData}>Cancel</Button>
+          <Button onClick={handleSubmit} variant="contained" disabled={loadingFormData}>
             Create
           </Button>
         </DialogActions>

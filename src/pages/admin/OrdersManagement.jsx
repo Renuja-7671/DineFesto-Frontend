@@ -73,6 +73,7 @@ const typeColors = {
 
 function OrdersManagement() {
   const [orders, setOrders] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -87,6 +88,7 @@ function OrdersManagement() {
   const [openNewOrderDialog, setOpenNewOrderDialog] = useState(false);
   const [customers, setCustomers] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
+  const [loadingOrderFormData, setLoadingOrderFormData] = useState(false);
   const [isWalkIn, setIsWalkIn] = useState(false);
   const [newOrderData, setNewOrderData] = useState({
     customerId: '',
@@ -104,38 +106,20 @@ function OrdersManagement() {
   });
 
   useEffect(() => {
-    fetchOrders();
-    fetchCustomers();
-    fetchMenuItems();
-  }, []);
+    const timer = setTimeout(() => {
+      fetchOrders();
+    }, searchQuery ? 300 : 0);
 
-  // Debug: Log state changes
-  useEffect(() => {
-    console.log('Customers state updated:', customers.length, 'customers');
-  }, [customers]);
-
-  useEffect(() => {
-    console.log('Menu items state updated:', menuItems.length, 'items');
-  }, [menuItems]);
+    return () => clearTimeout(timer);
+  }, [page, rowsPerPage, statusFilter, searchQuery]);
 
   const fetchCustomers = async () => {
     try {
       const token = getToken();
-      
-      // Fetch customers (includes both regular customers and staff members)
       const customersResponse = await axios.get(`${API_URL}/auth/customers`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      
-      console.log('Customers response:', customersResponse.data);
-      
-      const allCustomers = customersResponse.data.data || [];
-      
-      console.log('All customers (including staff):', allCustomers);
-      console.log('Staff members:', allCustomers.filter(c => c.isStaff));
-      console.log('Regular customers:', allCustomers.filter(c => !c.isStaff));
-      
-      setCustomers(allCustomers);
+      setCustomers(customersResponse.data.data || []);
     } catch (err) {
       console.error('Error fetching customers:', err);
     }
@@ -147,13 +131,19 @@ function OrdersManagement() {
       const response = await axios.get(`${API_URL}/menu`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      console.log('Menu items response:', response.data);
-      // Filter only available items
-      const availableItems = (response.data.data || []).filter(item => item.isAvailable);
-      console.log('Available menu items:', availableItems);
+      const availableItems = (response.data.data || []).filter((item) => item.isAvailable);
       setMenuItems(availableItems);
     } catch (err) {
       console.error('Error fetching menu items:', err);
+    }
+  };
+
+  const loadNewOrderFormData = async () => {
+    setLoadingOrderFormData(true);
+    try {
+      await Promise.all([fetchCustomers(), fetchMenuItems()]);
+    } finally {
+      setLoadingOrderFormData(false);
     }
   };
 
@@ -161,18 +151,27 @@ function OrdersManagement() {
     setLoading(true);
     try {
       const token = getToken();
+      const params = {
+        page: page + 1,
+        limit: rowsPerPage,
+      };
+
+      if (statusFilter !== 'ALL') {
+        params.status = statusFilter;
+      }
+
+      if (searchQuery.trim()) {
+        params.search = searchQuery.trim();
+      }
+
       const response = await axios.get(`${API_URL}/orders`, {
         headers: { Authorization: `Bearer ${token}` },
+        params,
       });
-      console.log('Orders response:', response.data);
-      console.log('Orders data:', response.data.data);
-      console.log('Number of orders:', response.data.data?.length);
-      
-      // Log walk-in customers specifically
-      const walkInOrders = response.data.data?.filter(order => order.customer?.isGuest);
-      console.log('Walk-in orders:', walkInOrders?.length, walkInOrders);
-      
+
       setOrders(response.data.data || []);
+      setTotalCount(response.data.pagination?.total || 0);
+      setError('');
     } catch (err) {
       console.error('Error fetching orders:', err);
       setError('Failed to load orders');
@@ -237,10 +236,7 @@ function OrdersManagement() {
     });
     setNewOrderErrors({});
     setOpenNewOrderDialog(true);
-    
-    // Refetch data to ensure it's up to date
-    fetchCustomers();
-    fetchMenuItems();
+    loadNewOrderFormData();
   };
 
   const handleAddItemToOrder = () => {
@@ -352,8 +348,6 @@ function OrdersManagement() {
         guestPhone: isWalkIn ? newOrderData.guestPhone : null,
       };
 
-      console.log('Sending order payload:', orderPayload);
-
       await axios.post(`${API_URL}/orders`, orderPayload, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -372,18 +366,6 @@ function OrdersManagement() {
       setLoading(false);
     }
   };
-
-  const filteredOrders = orders.filter((order) => {
-    // If no search query, match all orders
-    const matchesSearch = !searchQuery || 
-      order.id?.toString().includes(searchQuery) ||
-      order.customer?.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.customer?.fullName?.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesStatus = statusFilter === 'ALL' || order.status === statusFilter;
-
-    return matchesSearch && matchesStatus;
-  });
 
   return (
     <Box>
@@ -437,7 +419,10 @@ function OrdersManagement() {
               fullWidth
               placeholder="Search by order ID, customer name, or email..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setPage(0);
+              }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -453,7 +438,10 @@ function OrdersManagement() {
               select
               label="Status Filter"
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setPage(0);
+              }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -495,9 +483,7 @@ function OrdersManagement() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {filteredOrders
-                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                    .map((order) => (
+                  {orders.map((order) => (
                       <TableRow key={order.id} hover>
                         <TableCell>
                           <Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -570,7 +556,7 @@ function OrdersManagement() {
             <TablePagination
               rowsPerPageOptions={[5, 10, 25, 50]}
               component="div"
-              count={filteredOrders.length}
+              count={totalCount}
               rowsPerPage={rowsPerPage}
               page={page}
               onPageChange={(e, newPage) => setPage(newPage)}
@@ -708,6 +694,9 @@ function OrdersManagement() {
           <Typography variant="h6">Create New Order</Typography>
         </DialogTitle>
         <DialogContent>
+          {loadingOrderFormData ? (
+            <LinearProgress sx={{ my: 4 }} />
+          ) : (
           <Box sx={{ mt: 2 }}>
             {/* Walk-in Customer Toggle */}
             <FormControlLabel
@@ -732,9 +721,7 @@ function OrdersManagement() {
                 <Select
                   value={newOrderData.customerId || ''}
                   onChange={(e) => {
-                    const value = e.target.value;
-                    console.log('Selected value:', value, 'Type:', typeof value);
-                    setNewOrderData({ ...newOrderData, customerId: value });
+                    setNewOrderData({ ...newOrderData, customerId: e.target.value });
                   }}
                   label="Select Customer *"
                 >
@@ -935,15 +922,16 @@ function OrdersManagement() {
               </>
             )}
           </Box>
+          )}
         </DialogContent>
         <DialogActions sx={{ p: 3, pt: 0 }}>
-          <Button onClick={() => setOpenNewOrderDialog(false)} disabled={loading}>
+          <Button onClick={() => setOpenNewOrderDialog(false)} disabled={loading || loadingOrderFormData}>
             Cancel
           </Button>
           <Button
             variant="contained"
             onClick={handleCreateOrder}
-            disabled={loading || newOrderData.items.length === 0}
+            disabled={loading || loadingOrderFormData || newOrderData.items.length === 0}
           >
             Create Order
           </Button>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Button,
@@ -55,6 +55,7 @@ const roleColors = {
 
 function EmployeeManagement() {
   const [employees, setEmployees] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -76,21 +77,34 @@ function EmployeeManagement() {
   const [formErrors, setFormErrors] = useState({});
 
   useEffect(() => {
-    fetchEmployees();
-  }, []);
+    const timer = setTimeout(() => {
+      fetchEmployees();
+    }, searchQuery ? 300 : 0);
+
+    return () => clearTimeout(timer);
+  }, [page, rowsPerPage, searchQuery]);
 
   const fetchEmployees = async () => {
     setLoading(true);
     try {
       const token = getToken();
+      const params = {
+        page: page + 1,
+        limit: rowsPerPage,
+      };
+
+      if (searchQuery.trim()) {
+        params.search = searchQuery.trim();
+      }
+
       const response = await axios.get(`${API_URL}/employees`, {
         headers: { Authorization: `Bearer ${token}` },
+        params,
       });
-      // Filter only employees (not customers or admin)
-      const employeeData = response.data.data.filter(
-        (emp) => emp.role !== 'CUSTOMER' && emp.role !== 'ADMIN'
-      );
-      setEmployees(employeeData);
+
+      setEmployees(response.data.data || []);
+      setTotalCount(response.data.pagination?.total || 0);
+      setError('');
     } catch (err) {
       console.error('Error fetching employees:', err);
       setError('Failed to load employees');
@@ -276,20 +290,6 @@ function EmployeeManagement() {
     }
   };
 
-  const filteredEmployees = useMemo(() => 
-    employees.filter(
-      (emp) =>
-        emp.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        emp.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        emp.role?.toLowerCase().includes(searchQuery.toLowerCase())
-    ), [employees, searchQuery]
-  );
-
-  const paginatedEmployees = useMemo(() =>
-    filteredEmployees.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
-    [filteredEmployees, page, rowsPerPage]
-  );
-
   const handleChangePage = useCallback((event, newPage) => {
     setPage(newPage);
   }, []);
@@ -339,7 +339,10 @@ function EmployeeManagement() {
           fullWidth
           placeholder="Search employees by name, email, or role..."
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            setPage(0);
+          }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
@@ -370,7 +373,7 @@ function EmployeeManagement() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {paginatedEmployees.map((employee) => (
+                  {employees.map((employee) => (
                       <TableRow key={employee.id} hover>
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -453,7 +456,7 @@ function EmployeeManagement() {
             <TablePagination
               rowsPerPageOptions={[5, 10, 25]}
               component="div"
-              count={filteredEmployees.length}
+              count={totalCount}
               rowsPerPage={rowsPerPage}
               page={page}
               onPageChange={handleChangePage}

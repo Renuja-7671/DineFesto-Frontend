@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Grid,
   Card,
@@ -20,6 +20,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TablePagination,
   Paper,
   MenuItem,
   InputAdornment,
@@ -48,7 +49,10 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 function InventoryManagement() {
   const [inventoryItems, setInventoryItems] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [openDialog, setOpenDialog] = useState(false);
   const [openAdjustDialog, setOpenAdjustDialog] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
@@ -87,38 +91,45 @@ function InventoryManagement() {
     return parseFloat(item.quantity) <= parseFloat(item.reorderLevel);
   }, []);
 
-  const filteredItems = useMemo(() => {
-    let filtered = [...inventoryItems];
-
-    // Search filter
-    if (searchQuery) {
-      filtered = filtered.filter((item) =>
-        item.itemName.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    // Low stock filter
-    if (filterLowStock) {
-      filtered = filtered.filter((item) => parseFloat(item.quantity) <= parseFloat(item.reorderLevel));
-    }
-
-    return filtered;
-  }, [inventoryItems, searchQuery, filterLowStock]);
-
   useEffect(() => {
-    fetchInventoryItems();
     fetchStats();
   }, []);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchInventoryItems();
+    }, searchQuery ? 300 : 0);
+
+    return () => clearTimeout(timer);
+  }, [page, rowsPerPage, searchQuery, filterLowStock]);
+
   const fetchInventoryItems = async () => {
+    setLoading(true);
     try {
+      const params = {
+        page: page + 1,
+        limit: rowsPerPage,
+      };
+
+      if (searchQuery.trim()) {
+        params.search = searchQuery.trim();
+      }
+
+      if (filterLowStock) {
+        params.lowStock = 'true';
+      }
+
       const response = await axios.get(`${API_URL}/inventory`, {
         headers: { Authorization: `Bearer ${getToken()}` },
+        params,
       });
-      setInventoryItems(response.data.data);
-      setLoading(false);
+
+      setInventoryItems(response.data.data || []);
+      setTotalCount(response.data.pagination?.total || 0);
+      setError('');
     } catch (err) {
       setError('Failed to fetch inventory items');
+    } finally {
       setLoading(false);
     }
   };
@@ -375,7 +386,10 @@ function InventoryManagement() {
                 fullWidth
                 placeholder="Search inventory items..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setPage(0);
+                }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -390,7 +404,10 @@ function InventoryManagement() {
                 <Button
                   variant={filterLowStock ? 'contained' : 'outlined'}
                   startIcon={<FilterIcon />}
-                  onClick={() => setFilterLowStock(!filterLowStock)}
+                  onClick={() => {
+                    setFilterLowStock(!filterLowStock);
+                    setPage(0);
+                  }}
                   color={filterLowStock ? 'error' : 'primary'}
                 >
                   Low Stock Only
@@ -427,14 +444,14 @@ function InventoryManagement() {
                     Loading...
                   </TableCell>
                 </TableRow>
-              ) : filteredItems.length === 0 ? (
+              ) : inventoryItems.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={9} align="center">
                     No inventory items found
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredItems.map((item) => (
+                inventoryItems.map((item) => (
                   <TableRow key={item.inventoryId} hover>
                     <TableCell>
                       <Typography variant="body2" sx={{ fontWeight: 500 }}>
@@ -535,6 +552,18 @@ function InventoryManagement() {
             </TableBody>
           </Table>
         </TableContainer>
+        <TablePagination
+          rowsPerPageOptions={[5, 10, 25, 50]}
+          component="div"
+          count={totalCount}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={(event, newPage) => setPage(newPage)}
+          onRowsPerPageChange={(event) => {
+            setRowsPerPage(parseInt(event.target.value, 10));
+            setPage(0);
+          }}
+        />
       </Card>
 
       {/* Add/Edit Dialog */}
