@@ -28,6 +28,8 @@ import {
 } from '@mui/icons-material';
 import logo from '../../assets/logo.png';
 import { clearAuth, getUser } from '../../utils/auth';
+import ChatbotWidget from '../chat/ChatbotWidget';
+import { CHATBOT_POSITION } from '../../config/chatbot';
 
 const drawerWidth = 240;
 
@@ -211,6 +213,7 @@ function ChefLayout() {
       >
         <Outlet />
       </Box>
+      <ChatbotWidget accentColor="warning.main" {...CHATBOT_POSITION} />
     </Box>
   );
 }

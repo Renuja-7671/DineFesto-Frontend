@@ -33,6 +33,8 @@ import {
 } from '@mui/icons-material';
 import logo from '../../assets/logo.png';
 import NotificationBell from '../ui/NotificationBell';
+import ChatbotWidget from '../chat/ChatbotWidget';
+import { CHATBOT_POSITION } from '../../config/chatbot';
 
 const drawerWidth = 260;
 
@@ -381,6 +383,7 @@ function WaiterLayout() {
       >
         <Outlet />
       </Box>
+      <ChatbotWidget accentColor="primary.main" {...CHATBOT_POSITION} />
     </Box>
   );
 }

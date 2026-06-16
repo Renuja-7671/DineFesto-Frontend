@@ -290,7 +290,10 @@ function WaiterAttendance() {
       <Alert severity="info" icon={<MyLocation />} sx={{ mb: 2, borderRadius: 2 }}>
         Check-in and check-out require your device location for workplace verification.
         {locationPolicy?.workplaceConfigured && locationPolicy?.enforceGeofence && (
-          <> You must be within {locationPolicy.allowedRadiusMeters}m of the restaurant.</>
+          <> You must be within {locationPolicy.allowedRadiusMeters}m of{' '}
+            {locationPolicy.locationCount > 1
+              ? `any of the ${locationPolicy.locationCount} registered workplace sites`
+              : 'the restaurant'}.</>
         )}
         {locationPolicy?.workplaceConfigured && !locationPolicy?.enforceGeofence && (
           <> Your location is recorded; geofence enforcement is currently disabled.</>

@@ -37,6 +37,8 @@ import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { getUser, clearAuth } from '../../utils/auth';
 import logo from '../../assets/logo.png';
 import NotificationBell from '../ui/NotificationBell';
+import ChatbotWidget from '../chat/ChatbotWidget';
+import { CHATBOT_POSITION } from '../../config/chatbot';
 
 const drawerWidth = 280;
 
@@ -443,6 +445,7 @@ function AdminLayout() {
       >
         <Outlet />
       </Box>
+      <ChatbotWidget accentColor="primary.main" {...CHATBOT_POSITION} />
     </Box>
   );
 }
