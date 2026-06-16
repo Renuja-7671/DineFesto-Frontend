@@ -26,11 +26,11 @@ import {
   Avatar,
   Alert,
   InputAdornment,
+  Tooltip,
 } from '@mui/material';
 import {
   Add,
   Edit,
-  Delete,
   Search,
   Person,
   Email,
@@ -39,6 +39,8 @@ import {
   Badge,
   Visibility,
   VisibilityOff,
+  PersonOff,
+  PersonAdd,
 } from '@mui/icons-material';
 import axios from 'axios';
 import { getToken } from '../../utils/auth';
@@ -242,23 +244,33 @@ function EmployeeManagement() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this employee?')) {
+  const handleToggleStatus = async (employee) => {
+    const isCurrentlyActive = employee.isActive !== false;
+    const action = isCurrentlyActive ? 'deactivate' : 'reactivate';
+    const confirmMessage = isCurrentlyActive
+      ? `Deactivate ${employee.fullName}? They will no longer be able to sign in.`
+      : `Reactivate ${employee.fullName}? They will be able to sign in again.`;
+
+    if (!window.confirm(confirmMessage)) {
       return;
     }
 
     setLoading(true);
     try {
       const token = getToken();
-      await axios.delete(`${API_URL}/employees/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setSuccess('Employee deleted successfully!');
+      await axios.patch(
+        `${API_URL}/employees/${employee.id}/status`,
+        { isActive: !isCurrentlyActive },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      setSuccess(`Employee ${action}d successfully!`);
       await fetchEmployees();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
-      console.error('Error deleting employee:', err);
-      setError('Failed to delete employee');
+      console.error(`Error trying to ${action} employee:`, err);
+      setError(err.response?.data?.message || `Failed to ${action} employee`);
     } finally {
       setLoading(false);
     }
@@ -353,6 +365,7 @@ function EmployeeManagement() {
                     <TableCell>Role</TableCell>
                     <TableCell>Designation</TableCell>
                     <TableCell>Salary</TableCell>
+                    <TableCell>Status</TableCell>
                     <TableCell align="right">Actions</TableCell>
                   </TableRow>
                 </TableHead>
@@ -396,21 +409,41 @@ function EmployeeManagement() {
                             LKR {employee.employee?.salary?.toLocaleString() || '0'}
                           </Typography>
                         </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={employee.isActive === false ? 'Inactive' : 'Active'}
+                            color={employee.isActive === false ? 'default' : 'success'}
+                            size="small"
+                            variant={employee.isActive === false ? 'outlined' : 'filled'}
+                          />
+                        </TableCell>
                         <TableCell align="right">
-                          <IconButton
-                            size="small"
-                            color="primary"
-                            onClick={() => handleOpenDialog(employee)}
+                          <Tooltip title="Edit employee">
+                            <IconButton
+                              size="small"
+                              color="primary"
+                              onClick={() => handleOpenDialog(employee)}
+                            >
+                              <Edit />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip
+                            title={
+                              employee.isActive === false
+                                ? 'Reactivate employee'
+                                : 'Deactivate employee'
+                            }
                           >
-                            <Edit />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => handleDelete(employee.id)}
-                          >
-                            <Delete />
-                          </IconButton>
+                            <span>
+                              <IconButton
+                                size="small"
+                                color={employee.isActive === false ? 'success' : 'warning'}
+                                onClick={() => handleToggleStatus(employee)}
+                              >
+                                {employee.isActive === false ? <PersonAdd /> : <PersonOff />}
+                              </IconButton>
+                            </span>
+                          </Tooltip>
                         </TableCell>
                       </TableRow>
                     ))}

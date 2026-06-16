@@ -32,10 +32,11 @@ import {
   WorkOutline,
 } from '@mui/icons-material';
 import logo from '../../assets/logo.png';
+import NotificationBell from '../ui/NotificationBell';
 
 const drawerWidth = 260;
 
-function EmployeeLayout() {
+function WaiterLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
@@ -66,16 +67,16 @@ function EmployeeLayout() {
   // Role-based menu items
   const getMenuItems = () => {
     const baseItems = [
-      { text: 'Dashboard', icon: <DashboardIcon />, path: '/employee/dashboard' },
-      { text: 'Orders', icon: <OrdersIcon />, path: '/employee/orders' },
-      { text: 'Profile', icon: <ProfileIcon />, path: '/employee/profile' },
-      { text: 'Attendance', icon: <AttendanceIcon />, path: '/employee/attendance' },
+      { text: 'Dashboard', icon: <DashboardIcon />, path: '/waiter/dashboard' },
+      { text: 'Orders', icon: <OrdersIcon />, path: '/waiter/orders' },
+      { text: 'Profile', icon: <ProfileIcon />, path: '/waiter/profile' },
+      { text: 'Attendance', icon: <AttendanceIcon />, path: '/waiter/attendance' },
     ];
 
-    // Add schedule and leave for all employees
+    // Add schedule and leave for all staff
     const additionalItems = [
-      { text: 'Schedule', icon: <ScheduleIcon />, path: '/employee/schedule' },
-      { text: 'Leave Requests', icon: <LeaveIcon />, path: '/employee/leave' },
+      { text: 'Schedule', icon: <ScheduleIcon />, path: '/waiter/schedule' },
+      { text: 'Leave Requests', icon: <LeaveIcon />, path: '/waiter/leave' },
     ];
 
     return [...baseItems, ...additionalItems];
@@ -102,7 +103,7 @@ function EmployeeLayout() {
           <img src={logo} alt="DineFesto Logo" style={{ height: 85, width: 'auto' }} />
         </Box>
         <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: '-0.02em', color: 'text.primary' }}>
-          Employee Portal
+          Waiter Portal
         </Typography>
       </Box>
 
@@ -218,7 +219,7 @@ function EmployeeLayout() {
           </Box>
 
           {/* User Profile */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Chip
               label={roleBadge.label}
               color={roleBadge.color}
@@ -230,6 +231,7 @@ function EmployeeLayout() {
                 boxShadow: '0 2px 8px rgba(25, 118, 210, 0.15)',
               }}
             />
+            <NotificationBell />
             <IconButton 
               onClick={handleProfileMenuOpen}
               sx={{
@@ -385,4 +387,4 @@ function EmployeeLayout() {
   );
 }
 
-export default EmployeeLayout;
+export default WaiterLayout;

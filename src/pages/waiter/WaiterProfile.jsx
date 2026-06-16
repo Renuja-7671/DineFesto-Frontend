@@ -31,7 +31,7 @@ import { getToken } from '../../utils/auth';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
-function EmployeeProfile() {
+function WaiterProfile() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [loading, setLoading] = useState(true);
@@ -324,4 +324,4 @@ function EmployeeProfile() {
   );
 }
 
-export default EmployeeProfile;
+export default WaiterProfile;

@@ -1,45 +1,51 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { Toaster } from 'sonner';
-import HomePage from './pages/HomePage';
-import LoginPage from './pages/LoginPage';
-import SignUpPage from './pages/SignUpPage';
-import ForgotPasswordPage from './pages/ForgotPasswordPage';
-import ResetPasswordPage from './pages/ResetPasswordPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import PageLoader from './components/ui/PageLoader';
 import AdminLayout from './components/admin/AdminLayout';
-import DashboardOverview from './pages/admin/DashboardOverview';
-import EmployeeManagement from './pages/admin/EmployeeManagement';
-import MenuManagement from './pages/admin/MenuManagement';
-import OrdersManagement from './pages/admin/OrdersManagement';
-import InventoryManagement from './pages/admin/InventoryManagement';
-import ReservationsManagement from './pages/admin/ReservationsManagement';
-import ReviewsManagement from './pages/admin/ReviewsManagement';
-import ReportsManagement from './pages/admin/ReportsManagement';
-import ProfileManagement from './pages/admin/ProfileManagement';
-import SettingsManagement from './pages/admin/SettingsManagement';
-import LeaveManagement from './pages/admin/LeaveManagement';
+import WaiterLayout from './components/waiter/WaiterLayout';
 
-// Employee Portal
-import EmployeeLayout from './components/employee/EmployeeLayout';
-import EmployeeDashboard from './pages/employee/EmployeeDashboard';
-import EmployeeOrders from './pages/employee/EmployeeOrders';
-import EmployeeProfile from './pages/employee/EmployeeProfile';
-import EmployeeAttendance from './pages/employee/EmployeeAttendance';
-import EmployeeSchedule from './pages/employee/EmployeeSchedule';
-import EmployeeLeave from './pages/employee/EmployeeLeave';
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+const SignUpPage = lazy(() => import('./pages/SignUpPage'));
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
+
+const DashboardOverview = lazy(() => import('./pages/admin/DashboardOverview'));
+const EmployeeManagement = lazy(() => import('./pages/admin/EmployeeManagement'));
+const MenuManagement = lazy(() => import('./pages/admin/MenuManagement'));
+const OrdersManagement = lazy(() => import('./pages/admin/OrdersManagement'));
+const InventoryManagement = lazy(() => import('./pages/admin/InventoryManagement'));
+const RecipeManagement = lazy(() => import('./pages/admin/RecipeManagement'));
+const ReservationsManagement = lazy(() => import('./pages/admin/ReservationsManagement'));
+const ReviewsManagement = lazy(() => import('./pages/admin/ReviewsManagement'));
+const ReportsManagement = lazy(() => import('./pages/admin/ReportsManagement'));
+const ProfileManagement = lazy(() => import('./pages/admin/ProfileManagement'));
+const SettingsManagement = lazy(() => import('./pages/admin/SettingsManagement'));
+const LeaveManagement = lazy(() => import('./pages/admin/LeaveManagement'));
+
+const WaiterDashboard = lazy(() => import('./pages/waiter/WaiterDashboard'));
+const WaiterOrders = lazy(() => import('./pages/waiter/WaiterOrders'));
+const WaiterProfile = lazy(() => import('./pages/waiter/WaiterProfile'));
+const WaiterAttendance = lazy(() => import('./pages/waiter/WaiterAttendance'));
+const WaiterSchedule = lazy(() => import('./pages/waiter/WaiterSchedule'));
+const WaiterLeave = lazy(() => import('./pages/waiter/WaiterLeave'));
+
+function LazyPage({ children }) {
+  return <Suspense fallback={<PageLoader />}>{children}</Suspense>;
+}
 
 function App() {
   return (
     <>
       <Toaster position="top-right" richColors />
       <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignUpPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-        
-        {/* Admin Routes */}
+        <Route path="/" element={<LazyPage><LoginPage /></LazyPage>} />
+        <Route path="/login" element={<LazyPage><LoginPage /></LazyPage>} />
+        <Route path="/signup" element={<LazyPage><SignUpPage /></LazyPage>} />
+        <Route path="/forgot-password" element={<LazyPage><ForgotPasswordPage /></LazyPage>} />
+        <Route path="/reset-password" element={<LazyPage><ResetPasswordPage /></LazyPage>} />
+
         <Route
           path="/admin"
           element={
@@ -48,34 +54,34 @@ function App() {
             </ProtectedRoute>
           }
         >
-          <Route path="dashboard" element={<DashboardOverview />} />
-          <Route path="employees" element={<EmployeeManagement />} />
-          <Route path="leave-requests" element={<LeaveManagement />} />
-          <Route path="menu" element={<MenuManagement />} />
-          <Route path="orders" element={<OrdersManagement />} />
-          <Route path="inventory" element={<InventoryManagement />} />
-          <Route path="reservations" element={<ReservationsManagement />} />
-          <Route path="reviews" element={<ReviewsManagement />} />
-          <Route path="reports" element={<ReportsManagement />} />
-          <Route path="profile" element={<ProfileManagement />} />
-          <Route path="settings" element={<SettingsManagement />} />
+          <Route path="dashboard" element={<LazyPage><DashboardOverview /></LazyPage>} />
+          <Route path="employees" element={<LazyPage><EmployeeManagement /></LazyPage>} />
+          <Route path="leave-requests" element={<LazyPage><LeaveManagement /></LazyPage>} />
+          <Route path="menu" element={<LazyPage><MenuManagement /></LazyPage>} />
+          <Route path="orders" element={<LazyPage><OrdersManagement /></LazyPage>} />
+          <Route path="inventory" element={<LazyPage><InventoryManagement /></LazyPage>} />
+          <Route path="recipes" element={<LazyPage><RecipeManagement /></LazyPage>} />
+          <Route path="reservations" element={<LazyPage><ReservationsManagement /></LazyPage>} />
+          <Route path="reviews" element={<LazyPage><ReviewsManagement /></LazyPage>} />
+          <Route path="reports" element={<LazyPage><ReportsManagement /></LazyPage>} />
+          <Route path="profile" element={<LazyPage><ProfileManagement /></LazyPage>} />
+          <Route path="settings" element={<LazyPage><SettingsManagement /></LazyPage>} />
         </Route>
 
-        {/* Employee Portal Routes */}
         <Route
-          path="/employee"
+          path="/waiter"
           element={
             <ProtectedRoute allowedRoles={['MANAGER', 'WAITER', 'CHEF']}>
-              <EmployeeLayout />
+              <WaiterLayout />
             </ProtectedRoute>
           }
         >
-          <Route path="dashboard" element={<EmployeeDashboard />} />
-          <Route path="orders" element={<EmployeeOrders />} />
-          <Route path="profile" element={<EmployeeProfile />} />
-          <Route path="attendance" element={<EmployeeAttendance />} />
-          <Route path="schedule" element={<EmployeeSchedule />} />
-          <Route path="leave" element={<EmployeeLeave />} />
+          <Route path="dashboard" element={<LazyPage><WaiterDashboard /></LazyPage>} />
+          <Route path="orders" element={<LazyPage><WaiterOrders /></LazyPage>} />
+          <Route path="profile" element={<LazyPage><WaiterProfile /></LazyPage>} />
+          <Route path="attendance" element={<LazyPage><WaiterAttendance /></LazyPage>} />
+          <Route path="schedule" element={<LazyPage><WaiterSchedule /></LazyPage>} />
+          <Route path="leave" element={<LazyPage><WaiterLeave /></LazyPage>} />
         </Route>
       </Routes>
     </>

@@ -37,7 +37,7 @@ import { getToken } from '../../utils/auth';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
-function EmployeeOrders() {
+function WaiterOrders() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [loading, setLoading] = useState(true);
@@ -326,7 +326,6 @@ function EmployeeOrders() {
               <MenuItem value="ALL">All Types</MenuItem>
               <MenuItem value="DINE_IN">Dine-In</MenuItem>
               <MenuItem value="TAKEAWAY">Takeaway</MenuItem>
-              <MenuItem value="ONLINE_DELIVERY">Online Delivery</MenuItem>
             </TextField>
           </Grid>
         </Grid>
@@ -539,4 +538,4 @@ function EmployeeOrders() {
   );
 }
 
-export default EmployeeOrders;
+export default WaiterOrders;

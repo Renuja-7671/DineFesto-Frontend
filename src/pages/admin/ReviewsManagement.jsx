@@ -11,7 +11,6 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  IconButton,
   Chip,
   Alert,
   Table,
@@ -20,22 +19,16 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
   MenuItem,
   InputAdornment,
-  Tooltip,
-  Stack,
   Rating,
   Avatar,
   LinearProgress,
 } from '@mui/material';
 import {
   Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
   RateReview as ReviewIcon,
   Star as StarIcon,
-  TrendingUp as TrendingUpIcon,
   Search as SearchIcon,
   FilterList as FilterIcon,
   Person as PersonIcon,
@@ -54,14 +47,11 @@ function ReviewsManagement() {
   const [menuItems, setMenuItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
-  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
-  const [selectedReview, setSelectedReview] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [ratingFilter, setRatingFilter] = useState('ALL');
   const [stats, setStats] = useState({
     totalReviews: 0,
     averageRating: 0,
-    recentReviews: 0,
     ratingDistribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
   });
   const [formData, setFormData] = useState({
@@ -131,7 +121,6 @@ function ReviewsManagement() {
   const filterReviews = () => {
     let filtered = [...reviews];
 
-    // Search filter
     if (searchQuery) {
       filtered = filtered.filter((review) => {
         const customerName = review.customer?.fullName?.toLowerCase() || '';
@@ -146,97 +135,41 @@ function ReviewsManagement() {
       });
     }
 
-    // Rating filter
     if (ratingFilter !== 'ALL') {
-      filtered = filtered.filter((review) => review.rating === parseInt(ratingFilter));
+      filtered = filtered.filter((review) => review.rating === parseInt(ratingFilter, 10));
     }
 
     setFilteredReviews(filtered);
   };
 
-  const handleOpenDialog = (review = null) => {
-    if (review) {
-      setSelectedReview(review);
-      setFormData({
-        customerId: review.customerId,
-        menuItemId: review.menuItemId,
-        rating: review.rating,
-        comment: review.comment || '',
-      });
-    } else {
-      setSelectedReview(null);
-      setFormData({
-        customerId: '',
-        menuItemId: '',
-        rating: 5,
-        comment: '',
-      });
-    }
+  const handleOpenDialog = () => {
+    setFormData({
+      customerId: '',
+      menuItemId: '',
+      rating: 5,
+      comment: '',
+    });
     setOpenDialog(true);
     setError('');
   };
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
-    setSelectedReview(null);
     setError('');
-  };
-
-  const handleOpenDeleteDialog = (review) => {
-    setSelectedReview(review);
-    setOpenDeleteDialog(true);
-  };
-
-  const handleCloseDeleteDialog = () => {
-    setOpenDeleteDialog(false);
-    setSelectedReview(null);
   };
 
   const handleSubmit = async () => {
     try {
-      if (selectedReview) {
-        // Update existing review
-        await axios.put(
-          `${API_URL}/reviews/${selectedReview.reviewId}`,
-          {
-            rating: formData.rating,
-            comment: formData.comment,
-          },
-          {
-            headers: { Authorization: `Bearer ${getToken()}` },
-          }
-        );
-        setSuccess('Review updated successfully');
-      } else {
-        // Create new review
-        await axios.post(`${API_URL}/reviews`, formData, {
-          headers: { Authorization: `Bearer ${getToken()}` },
-        });
-        setSuccess('Review created successfully');
-      }
+      await axios.post(`${API_URL}/reviews`, formData, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      setSuccess('Review created successfully');
       handleCloseDialog();
       fetchReviews();
       fetchStats();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to save review');
-    }
-  };
-
-  const handleDelete = async () => {
-    try {
-      await axios.delete(`${API_URL}/reviews/${selectedReview.reviewId}`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
-      });
-      setSuccess('Review deleted successfully');
-      handleCloseDeleteDialog();
-      fetchReviews();
-      fetchStats();
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to delete review');
-      handleCloseDeleteDialog();
-      setTimeout(() => setError(''), 5000);
     }
   };
 
@@ -261,7 +194,6 @@ function ReviewsManagement() {
 
   return (
     <Box>
-      {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Typography variant="h4" sx={{ fontWeight: 700 }}>
           Reviews Management
@@ -269,14 +201,13 @@ function ReviewsManagement() {
         <Button
           variant="contained"
           startIcon={<AddIcon />}
-          onClick={() => handleOpenDialog()}
+          onClick={handleOpenDialog}
           size="large"
         >
           New Review
         </Button>
       </Box>
 
-      {/* Alerts */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
           {error}
@@ -288,9 +219,8 @@ function ReviewsManagement() {
         </Alert>
       )}
 
-      {/* Stats Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} md={3}>
+        <Grid item xs={12} md={4}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -319,7 +249,7 @@ function ReviewsManagement() {
           </Card>
         </Grid>
 
-        <Grid item xs={12} md={3}>
+        <Grid item xs={12} md={4}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -351,36 +281,7 @@ function ReviewsManagement() {
           </Card>
         </Grid>
 
-        <Grid item xs={12} md={3}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Box
-                  sx={{
-                    backgroundColor: 'success.light',
-                    borderRadius: 2,
-                    p: 1.5,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <TrendingUpIcon sx={{ fontSize: 32, color: 'success.main' }} />
-                </Box>
-                <Box>
-                  <Typography variant="body2" color="text.secondary">
-                    Recent (7 days)
-                  </Typography>
-                  <Typography variant="h4" sx={{ fontWeight: 700 }}>
-                    {stats.recentReviews}
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} md={3}>
+        <Grid item xs={12} md={4}>
           <Card>
             <CardContent>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -406,7 +307,6 @@ function ReviewsManagement() {
         </Grid>
       </Grid>
 
-      {/* Filters */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Grid container spacing={2} alignItems="center">
@@ -452,7 +352,6 @@ function ReviewsManagement() {
         </CardContent>
       </Card>
 
-      {/* Reviews Table */}
       <Card>
         <TableContainer>
           <Table>
@@ -463,21 +362,18 @@ function ReviewsManagement() {
                 <TableCell sx={{ fontWeight: 600 }}>Rating</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Comment</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>
-                <TableCell sx={{ fontWeight: 600 }} align="right">
-                  Actions
-                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} align="center">
+                  <TableCell colSpan={5} align="center">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : filteredReviews.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} align="center">
+                  <TableCell colSpan={5} align="center">
                     No reviews found
                   </TableCell>
                 </TableRow>
@@ -539,28 +435,6 @@ function ReviewsManagement() {
                     <TableCell>
                       <Typography variant="body2">{formatDate(review.createdAt)}</Typography>
                     </TableCell>
-                    <TableCell align="right">
-                      <Stack direction="row" spacing={1} justifyContent="flex-end">
-                        <Tooltip title="Edit">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleOpenDialog(review)}
-                            color="primary"
-                          >
-                            <EditIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Delete">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleOpenDeleteDialog(review)}
-                            color="error"
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </Tooltip>
-                      </Stack>
-                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -569,9 +443,8 @@ function ReviewsManagement() {
         </TableContainer>
       </Card>
 
-      {/* Add/Edit Dialog */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>{selectedReview ? 'Edit Review' : 'New Review'}</DialogTitle>
+        <DialogTitle>New Review</DialogTitle>
         <DialogContent>
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
@@ -587,7 +460,6 @@ function ReviewsManagement() {
                 value={formData.customerId}
                 onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
                 required
-                disabled={selectedReview !== null}
               >
                 {customers.map((customer) => (
                   <MenuItem key={customer.customerId} value={customer.customerId}>
@@ -604,7 +476,6 @@ function ReviewsManagement() {
                 value={formData.menuItemId}
                 onChange={(e) => setFormData({ ...formData, menuItemId: e.target.value })}
                 required
-                disabled={selectedReview !== null}
               >
                 {menuItems.map((item) => (
                   <MenuItem key={item.itemId} value={item.itemId}>
@@ -641,23 +512,7 @@ function ReviewsManagement() {
         <DialogActions>
           <Button onClick={handleCloseDialog}>Cancel</Button>
           <Button onClick={handleSubmit} variant="contained">
-            {selectedReview ? 'Update' : 'Create'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={openDeleteDialog} onClose={handleCloseDeleteDialog}>
-        <DialogTitle>Confirm Delete</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Are you sure you want to delete this review? This action cannot be undone.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDeleteDialog}>Cancel</Button>
-          <Button onClick={handleDelete} variant="contained" color="error">
-            Delete
+            Create
           </Button>
         </DialogActions>
       </Dialog>

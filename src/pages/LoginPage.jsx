@@ -41,7 +41,7 @@ function LoginPage() {
         case 'MANAGER':
         case 'WAITER':
         case 'CHEF':
-          navigate('/employee/dashboard');
+          navigate('/waiter/dashboard');
           break;
         case 'CUSTOMER':
           navigate('/customer/dashboard');
@@ -141,15 +141,6 @@ function LoginPage() {
             <p className="text-sm text-muted-foreground">
               Don't have an account?{' '}
               Contact the Admin for access.
-            </p>
-          </div>
-
-          <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
-            <p className="text-xs text-center text-blue-900 dark:text-blue-100">
-              <strong>Access Levels:</strong> Admin • Employee
-            </p>
-            <p className="text-xs text-center text-blue-700 dark:text-blue-300 mt-1">
-              You'll be redirected based on your role after login
             </p>
           </div>
         </CardContent>

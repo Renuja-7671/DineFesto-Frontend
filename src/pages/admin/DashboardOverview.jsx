@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Grid,
@@ -12,10 +12,10 @@ import {
   Chip,
   IconButton,
   Alert,
+  Skeleton,
 } from '@mui/material';
+
 import {
-  TrendingUp,
-  TrendingDown,
   People,
   ShoppingCart,
   AttachMoney,
@@ -26,6 +26,8 @@ import {
 import {
   LineChart,
   Line,
+  BarChart,
+  Bar,
   PieChart,
   Pie,
   Cell,
@@ -36,26 +38,18 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import axios from 'axios';
-import { getToken } from '../../utils/auth';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+import { useAuthenticatedQuery } from '../../hooks/useAuthenticatedQuery';
+import { queryClient } from '../../lib/queryClient';
 const COLORS = ['#FF6B35', '#004E89', '#F77F00', '#06A77D'];
 
-function StatCard({ title, value, change, icon, color, trend }) {
+function StatCard({ title, value, icon, color }) {
   return (
     <Card elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
       <CardContent>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+        <Box sx={{ mb: 2 }}>
           <Avatar sx={{ backgroundColor: `${color}20`, color: color, width: 56, height: 56 }}>
             {icon}
           </Avatar>
-          <Chip
-            icon={trend === 'up' ? <TrendingUp /> : <TrendingDown />}
-            label={change}
-            size="small"
-            color={trend === 'up' ? 'success' : 'error'}
-          />
         </Box>
         <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
           {value}
@@ -68,40 +62,32 @@ function StatCard({ title, value, change, icon, color, trend }) {
   );
 }
 
+const EMPTY_DASHBOARD = {
+  stats: {
+    totalRevenue: { value: 0, change: '0', trend: 'up' },
+    totalOrders: { value: 0, change: '0', trend: 'up' },
+    totalCustomers: { value: 0, change: '0', trend: 'up' },
+    totalMenuItems: { value: 0, change: '0', trend: 'up' },
+  },
+  weeklyRevenue: [],
+  monthlyRevenue: [],
+  categoryDistribution: [],
+  recentOrders: [],
+};
+
 function DashboardOverview() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [dashboardData, setDashboardData] = useState({
-    stats: {
-      totalRevenue: { value: 0, change: '0', trend: 'up' },
-      totalOrders: { value: 0, change: '0', trend: 'up' },
-      totalCustomers: { value: 0, change: '0', trend: 'up' },
-      totalMenuItems: { value: 0, change: '0', trend: 'up' },
-    },
-    weeklyRevenue: [],
-    categoryDistribution: [],
-    recentOrders: [],
-  });
 
-  const fetchDashboardData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get(`${API_URL}/reports/dashboard-overview`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
-      });
-      setDashboardData(response.data.data);
-      setLoading(false);
-    } catch (err) {
-      console.error('Failed to fetch dashboard data:', err);
-      setError('Failed to load dashboard data');
-      setLoading(false);
-    }
+  const {
+    data: dashboardData = EMPTY_DASHBOARD,
+    isLoading,
+    error,
+    isFetching,
+  } = useAuthenticatedQuery(['reports', 'dashboard-overview'], '/reports/dashboard-overview');
+
+  const refreshDashboard = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['reports', 'dashboard-overview'] });
   }, []);
-
-  useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData]);
 
   const formatCurrency = useCallback((value) => {
     return new Intl.NumberFormat('en-LK', {
@@ -129,7 +115,7 @@ function DashboardOverview() {
 
   const statsCards = useMemo(() => [
     {
-      title: 'Total Revenue',
+      title: 'Revenue This Month',
       value: formatCurrency(dashboardData.stats.totalRevenue.value),
       change: dashboardData.stats.totalRevenue.change,
       trend: dashboardData.stats.totalRevenue.trend,
@@ -162,37 +148,8 @@ function DashboardOverview() {
     },
   ], [dashboardData.stats, formatCurrency]);
 
-  if (loading) {
-    return (
-      <Box>
-        <Typography variant="h4" sx={{ fontWeight: 700, mb: 3 }}>
-          Dashboard Overview
-        </Typography>
-        <LinearProgress />
-      </Box>
-    );
-  }
-
-  if (error) {
-    return (
-      <Box>
-        <Typography variant="h4" sx={{ fontWeight: 700, mb: 3 }}>
-          Dashboard Overview
-        </Typography>
-        <Alert severity="error" action={
-          <IconButton color="inherit" size="small" onClick={fetchDashboardData}>
-            <Refresh />
-          </IconButton>
-        }>
-          {error}
-        </Alert>
-      </Box>
-    );
-  }
-
   return (
     <Box>
-      {/* Page Header */}
       <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box>
           <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
@@ -202,27 +159,46 @@ function DashboardOverview() {
             Welcome back! Here's what's happening with your restaurant today.
           </Typography>
         </Box>
-        <IconButton onClick={fetchDashboardData} color="primary">
+        <IconButton onClick={refreshDashboard} color="primary" disabled={isFetching}>
           <Refresh />
         </IconButton>
       </Box>
 
-      {/* Stats Cards */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error.message || 'Failed to load dashboard data'}
+        </Alert>
+      )}
+
+      {isFetching && <LinearProgress sx={{ mb: 2 }} />}
+
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        {statsCards.map((card, index) => (
-          <Grid item xs={12} sm={6} md={3} key={index}>
-            <StatCard
-              title={card.title}
-              value={card.value}
-              change={`${card.change >= 0 ? '+' : ''}${card.change}%`}
-              icon={card.icon}
-              color={card.color}
-              trend={card.trend}
-            />
-          </Grid>
-        ))}
+        {isLoading
+          ? Array.from({ length: 4 }).map((_, index) => (
+              <Grid item xs={12} sm={6} md={3} key={index}>
+                <Card elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+                  <CardContent>
+                    <Skeleton variant="circular" width={56} height={56} sx={{ mb: 2 }} />
+                    <Skeleton width="50%" height={40} />
+                    <Skeleton width="70%" />
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))
+          : statsCards.map((card, index) => (
+              <Grid item xs={12} sm={6} md={3} key={index}>
+                <StatCard
+                  title={card.title}
+                  value={card.value}
+                  icon={card.icon}
+                  color={card.color}
+                />
+              </Grid>
+            ))}
       </Grid>
 
+      {!isLoading && (
+        <>
       {/* Charts */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         {/* Revenue Chart */}
@@ -301,6 +277,70 @@ function DashboardOverview() {
         </Grid>
       </Grid>
 
+      {/* Monthly Revenue Chart */}
+      <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              Monthly Revenue
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Total revenue per month — last 12 months
+            </Typography>
+          </Box>
+          {dashboardData.monthlyRevenue.length > 0 && (
+            <Typography variant="h6" sx={{ fontWeight: 700, color: '#FF6B35' }}>
+              {formatCurrency(
+                dashboardData.monthlyRevenue.reduce((sum, m) => sum + m.revenue, 0)
+              )}
+            </Typography>
+          )}
+        </Box>
+        {dashboardData.monthlyRevenue.length > 0 ? (
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart
+              data={dashboardData.monthlyRevenue}
+              margin={{ top: 5, right: 20, left: 20, bottom: 5 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+              <XAxis
+                dataKey="month"
+                tick={{ fontSize: 12 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tickFormatter={(v) =>
+                  new Intl.NumberFormat('en-LK', {
+                    notation: 'compact',
+                    compactDisplay: 'short',
+                  }).format(v)
+                }
+                tick={{ fontSize: 12 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip
+                formatter={(value) => [formatCurrency(value), 'Revenue']}
+                labelStyle={{ fontWeight: 600 }}
+                contentStyle={{ borderRadius: 8, border: '1px solid #e0e0e0' }}
+              />
+              <Bar
+                dataKey="revenue"
+                fill="#FF6B35"
+                radius={[6, 6, 0, 0]}
+                maxBarSize={56}
+                name="Revenue (LKR)"
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : (
+          <Typography color="text.secondary" align="center" sx={{ py: 5 }}>
+            No monthly revenue data available
+          </Typography>
+        )}
+      </Paper>
+
       {/* Recent Orders */}
       <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -368,6 +408,8 @@ function DashboardOverview() {
           )}
         </Box>
       </Paper>
+        </>
+      )}
     </Box>
   );
 }

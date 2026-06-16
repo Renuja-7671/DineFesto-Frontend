@@ -62,7 +62,7 @@ function StatCard({ title, value, icon, color, subtitle }) {
   );
 }
 
-function EmployeeDashboard() {
+function WaiterDashboard() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [loading, setLoading] = useState(true);
@@ -81,6 +81,7 @@ function EmployeeDashboard() {
     },
     recentActivity: [],
     upcomingLeave: null,
+    leaveBalance: null,
   });
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -257,6 +258,32 @@ function EmployeeDashboard() {
         ))}
       </Grid>
 
+      {/* Leave Balance Summary */}
+      {dashboardData.leaveBalance?.balances && (
+        <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+          <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+            Leave Balance ({dashboardData.leaveBalance.year})
+          </Typography>
+          <Grid container spacing={2}>
+            {dashboardData.leaveBalance.balances.map((item) => (
+              <Grid item xs={12} sm={4} key={item.type}>
+                <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'grey.50' }}>
+                  <Typography variant="body2" color="text.secondary">
+                    {item.label}
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                    {item.remaining} / {item.allocated} remaining
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {item.used} used · {item.pending} pending
+                  </Typography>
+                </Box>
+              </Grid>
+            ))}
+          </Grid>
+        </Paper>
+      )}
+
       {/* Recent Activity */}
       <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
         <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
@@ -313,7 +340,9 @@ function EmployeeDashboard() {
             Upcoming Leave
           </Typography>
           <Typography variant="body2">
-            You have approved leave from {new Date(dashboardData.upcomingLeave.startDate).toLocaleDateString()} 
+            You have approved {dashboardData.upcomingLeave.leaveType?.toLowerCase().replace('_', ' ') || ''} leave
+            ({dashboardData.upcomingLeave.totalDays} day(s)) from{' '}
+            {new Date(dashboardData.upcomingLeave.startDate).toLocaleDateString()}
             {' to '} {new Date(dashboardData.upcomingLeave.endDate).toLocaleDateString()}
           </Typography>
         </Alert>
@@ -322,4 +351,4 @@ function EmployeeDashboard() {
   );
 }
 
-export default EmployeeDashboard;
+export default WaiterDashboard;

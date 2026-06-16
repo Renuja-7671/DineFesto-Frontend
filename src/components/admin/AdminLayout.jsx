@@ -24,6 +24,7 @@ import {
   People as PeopleIcon,
   ShoppingCart as OrdersIcon,
   Inventory as InventoryIcon,
+  MenuBook as RecipeIcon,
   EventNote as ReservationsIcon,
   RateReview as ReviewsIcon,
   Assessment as ReportsIcon,
@@ -35,6 +36,7 @@ import {
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { getUser, clearAuth } from '../../utils/auth';
 import logo from '../../assets/logo.png';
+import NotificationBell from '../ui/NotificationBell';
 
 const drawerWidth = 280;
 
@@ -45,6 +47,7 @@ const menuItems = [
   { text: 'Menu', icon: <RestaurantIcon />, path: '/admin/menu' },
   { text: 'Orders', icon: <OrdersIcon />, path: '/admin/orders' },
   { text: 'Inventory', icon: <InventoryIcon />, path: '/admin/inventory' },
+  { text: 'Ingredients', icon: <RecipeIcon />, path: '/admin/recipes' },
   { text: 'Reservations', icon: <ReservationsIcon />, path: '/admin/reservations' },
   { text: 'Reviews', icon: <ReviewsIcon />, path: '/admin/reviews' },
   { text: 'Reports', icon: <ReportsIcon />, path: '/admin/reports' },
@@ -263,7 +266,7 @@ function AdminLayout() {
           </Box>
 
           {/* User Profile */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Chip
               icon={<AdminPanelSettings />}
               label="Admin"
@@ -276,6 +279,7 @@ function AdminLayout() {
                 boxShadow: '0 2px 8px rgba(25, 118, 210, 0.15)',
               }}
             />
+            <NotificationBell />
             <IconButton 
               onClick={handleProfileMenuOpen}
               sx={{

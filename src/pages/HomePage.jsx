@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import {
   Restaurant,
-  DeliveryDining,
+  TakeoutDining,
   EventSeat,
   Stars,
   Schedule,
@@ -34,9 +34,9 @@ function HomePage() {
       color: '#FF6B35',
     },
     {
-      icon: <DeliveryDining sx={{ fontSize: 40 }} />,
-      title: 'Quick Delivery',
-      description: 'Fast and reliable delivery to your doorstep in 30 minutes or less',
+      icon: <TakeoutDining sx={{ fontSize: 40 }} />,
+      title: 'Quick Takeaway',
+      description: 'Order ahead and pick up your food fresh and ready to go',
       color: '#4ECDC4',
     },
     {
@@ -89,7 +89,7 @@ function HomePage() {
       name: 'Sarah Johnson',
       avatar: 'S',
       rating: 5,
-      comment: 'Absolutely amazing food! The delivery was fast and everything was fresh and hot. Highly recommend!',
+      comment: 'Absolutely amazing food! The takeaway was quick and everything was fresh and hot. Highly recommend!',
     },
     {
       name: 'Michael Chen',

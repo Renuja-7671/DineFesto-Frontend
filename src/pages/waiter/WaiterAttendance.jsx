@@ -19,6 +19,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Snackbar,
 } from '@mui/material';
 import {
   Refresh,
@@ -28,17 +29,28 @@ import {
   Login,
   Logout,
   Event,
+  LocationOn,
+  MyLocation,
 } from '@mui/icons-material';
 import axios from 'axios';
 import { getToken } from '../../utils/auth';
+import { getDeviceLocation, getVerificationLabel } from '../../utils/geolocation';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
-function EmployeeAttendance() {
+const getVerificationChipColor = (atWorkplace, workplaceConfigured) => {
+  if (!workplaceConfigured) return 'default';
+  if (atWorkplace === true) return 'success';
+  if (atWorkplace === false) return 'error';
+  return 'default';
+};
+
+function WaiterAttendance() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
   const [attendanceData, setAttendanceData] = useState({
     todayAttendance: null,
     attendanceHistory: [],
@@ -48,6 +60,7 @@ function EmployeeAttendance() {
       lateDays: 0,
       totalWorkingHours: 0,
     },
+    locationPolicy: null,
   });
   const [checkingIn, setCheckingIn] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
@@ -59,6 +72,7 @@ function EmployeeAttendance() {
         headers: { Authorization: `Bearer ${getToken()}` },
       });
       setAttendanceData(response.data.data);
+      setError('');
       setLoading(false);
     } catch (err) {
       console.error('Failed to fetch attendance:', err);
@@ -71,19 +85,40 @@ function EmployeeAttendance() {
     fetchAttendance();
   }, [fetchAttendance]);
 
+  const punchWithLocation = async (endpoint) => {
+    const location = await getDeviceLocation();
+    return axios.post(
+      endpoint,
+      {
+        latitude: location.latitude,
+        longitude: location.longitude,
+        accuracy: location.accuracy,
+      },
+      { headers: { Authorization: `Bearer ${getToken()}` } }
+    );
+  };
+
   const handleCheckIn = async () => {
     try {
       setCheckingIn(true);
-      await axios.post(
-        `${API_URL}/employees/attendance/check-in`,
-        {},
-        { headers: { Authorization: `Bearer ${getToken()}` } }
-      );
+      const response = await punchWithLocation(`${API_URL}/employees/attendance/check-in`);
+      const verification = response.data.locationVerification;
+      setSnackbar({
+        open: true,
+        message: verification?.atWorkplace === false
+          ? 'Checked in, but you were outside the workplace geofence.'
+          : 'Checked in successfully with location recorded.',
+        severity: verification?.atWorkplace === false ? 'warning' : 'success',
+      });
       fetchAttendance();
-      setCheckingIn(false);
     } catch (err) {
       console.error('Failed to check in:', err);
-      alert('Failed to check in');
+      const message =
+        err.response?.data?.message ||
+        err.message ||
+        'Failed to check in';
+      setSnackbar({ open: true, message, severity: 'error' });
+    } finally {
       setCheckingIn(false);
     }
   };
@@ -91,16 +126,24 @@ function EmployeeAttendance() {
   const handleCheckOut = async () => {
     try {
       setCheckingOut(true);
-      await axios.post(
-        `${API_URL}/employees/attendance/check-out`,
-        {},
-        { headers: { Authorization: `Bearer ${getToken()}` } }
-      );
+      const response = await punchWithLocation(`${API_URL}/employees/attendance/check-out`);
+      const verification = response.data.locationVerification;
+      setSnackbar({
+        open: true,
+        message: verification?.atWorkplace === false
+          ? 'Checked out, but you were outside the workplace geofence.'
+          : 'Checked out successfully with location recorded.',
+        severity: verification?.atWorkplace === false ? 'warning' : 'success',
+      });
       fetchAttendance();
-      setCheckingOut(false);
     } catch (err) {
       console.error('Failed to check out:', err);
-      alert('Failed to check out');
+      const message =
+        err.response?.data?.message ||
+        err.message ||
+        'Failed to check out';
+      setSnackbar({ open: true, message, severity: 'error' });
+    } finally {
       setCheckingOut(false);
     }
   };
@@ -128,6 +171,25 @@ function EmployeeAttendance() {
     }
   };
 
+  const renderLocationChip = (atWorkplace, distanceMeters) => {
+    const workplaceConfigured = attendanceData.locationPolicy?.workplaceConfigured;
+    const label = getVerificationLabel(atWorkplace, workplaceConfigured);
+    const color = getVerificationChipColor(atWorkplace, workplaceConfigured);
+    const distanceLabel =
+      distanceMeters != null && workplaceConfigured ? ` (${distanceMeters}m)` : '';
+
+    return (
+      <Chip
+        icon={<LocationOn sx={{ fontSize: 16 }} />}
+        label={`${label}${distanceLabel}`}
+        size="small"
+        color={color}
+        variant={color === 'default' ? 'outlined' : 'filled'}
+        sx={{ fontWeight: 600 }}
+      />
+    );
+  };
+
   if (loading) {
     return (
       <Box>
@@ -145,8 +207,8 @@ function EmployeeAttendance() {
         <Typography variant="h4" sx={{ fontWeight: 700, mb: 3 }}>
           Attendance
         </Typography>
-        <Alert 
-          severity="error" 
+        <Alert
+          severity="error"
           action={
             <IconButton color="inherit" size="small" onClick={fetchAttendance}>
               <Refresh />
@@ -161,9 +223,25 @@ function EmployeeAttendance() {
 
   const todayAttendance = attendanceData.todayAttendance;
   const isCheckedIn = todayAttendance && todayAttendance.checkInTime && !todayAttendance.checkOutTime;
+  const locationPolicy = attendanceData.locationPolicy;
 
   return (
     <Box>
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          severity={snackbar.severity}
+          onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+
       {/* Page Header */}
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
         <Box>
@@ -182,12 +260,25 @@ function EmployeeAttendance() {
         </IconButton>
       </Box>
 
+      <Alert severity="info" icon={<MyLocation />} sx={{ mb: 3, borderRadius: 2 }}>
+        Check-in and check-out require your device location for workplace verification.
+        {locationPolicy?.workplaceConfigured && locationPolicy?.enforceGeofence && (
+          <> You must be within {locationPolicy.allowedRadiusMeters}m of the restaurant.</>
+        )}
+        {locationPolicy?.workplaceConfigured && !locationPolicy?.enforceGeofence && (
+          <> Your location is recorded; geofence enforcement is currently disabled.</>
+        )}
+        {!locationPolicy?.workplaceConfigured && (
+          <> Location is saved for admin review. Ask your manager to configure workplace coordinates.</>
+        )}
+      </Alert>
+
       {/* Today's Attendance Card */}
-      <Paper 
-        elevation={0} 
-        sx={{ 
-          p: 3, 
-          borderRadius: 3, 
+      <Paper
+        elevation={0}
+        sx={{
+          p: 3,
+          borderRadius: 3,
           mb: 3,
           border: '2px solid',
           borderColor: isCheckedIn ? 'success.main' : 'grey.300',
@@ -207,14 +298,22 @@ function EmployeeAttendance() {
                     Check-in time: {formatTime(todayAttendance.checkInTime)}
                   </Typography>
                 )}
-                {todayAttendance?.status && (
-                  <Chip
-                    label={todayAttendance.status}
-                    size="small"
-                    color={getStatusColor(todayAttendance.status)}
-                    sx={{ mt: 1, fontWeight: 600 }}
-                  />
-                )}
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+                  {todayAttendance?.status && (
+                    <Chip
+                      label={todayAttendance.status}
+                      size="small"
+                      color={getStatusColor(todayAttendance.status)}
+                      sx={{ fontWeight: 600 }}
+                    />
+                  )}
+                  {todayAttendance?.checkInLatitude != null && (
+                    renderLocationChip(
+                      todayAttendance.checkInAtWorkplace,
+                      todayAttendance.checkInDistanceMeters
+                    )
+                  )}
+                </Box>
               </Box>
             </Box>
           </Grid>
@@ -224,26 +323,26 @@ function EmployeeAttendance() {
                 <Button
                   variant="contained"
                   size="large"
-                  startIcon={<Login />}
+                  startIcon={checkingIn ? <MyLocation /> : <Login />}
                   onClick={handleCheckIn}
                   disabled={checkingIn}
                   fullWidth={isMobile}
                   sx={{ borderRadius: 2, fontWeight: 600 }}
                 >
-                  {checkingIn ? 'Checking In...' : 'Check In'}
+                  {checkingIn ? 'Getting location...' : 'Check In'}
                 </Button>
               )}
               {isCheckedIn && (
                 <Button
                   variant="outlined"
                   size="large"
-                  startIcon={<Logout />}
+                  startIcon={checkingOut ? <MyLocation /> : <Logout />}
                   onClick={handleCheckOut}
                   disabled={checkingOut}
                   fullWidth={isMobile}
                   sx={{ borderRadius: 2, fontWeight: 600 }}
                 >
-                  {checkingOut ? 'Checking Out...' : 'Check Out'}
+                  {checkingOut ? 'Getting location...' : 'Check Out'}
                 </Button>
               )}
             </Box>
@@ -319,6 +418,7 @@ function EmployeeAttendance() {
                 <TableCell sx={{ fontWeight: 700 }}>Date</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Check In</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Check Out</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Location</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
               </TableRow>
             </TableHead>
@@ -332,6 +432,25 @@ function EmployeeAttendance() {
                     <TableCell>{formatTime(record.checkInTime)}</TableCell>
                     <TableCell>{formatTime(record.checkOutTime)}</TableCell>
                     <TableCell>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                        {record.checkInLatitude != null &&
+                          renderLocationChip(record.checkInAtWorkplace, record.checkInDistanceMeters)}
+                        {record.checkOutLatitude != null && (
+                          <Chip
+                            icon={<LocationOn sx={{ fontSize: 14 }} />}
+                            label={`Out: ${getVerificationLabel(record.checkOutAtWorkplace, locationPolicy?.workplaceConfigured)}${record.checkOutDistanceMeters != null && locationPolicy?.workplaceConfigured ? ` (${record.checkOutDistanceMeters}m)` : ''}`}
+                            size="small"
+                            color={getVerificationChipColor(record.checkOutAtWorkplace, locationPolicy?.workplaceConfigured)}
+                            variant="outlined"
+                            sx={{ fontWeight: 600, width: 'fit-content' }}
+                          />
+                        )}
+                        {record.checkInLatitude == null && record.checkOutLatitude == null && (
+                          <Typography variant="caption" color="text.secondary">—</Typography>
+                        )}
+                      </Box>
+                    </TableCell>
+                    <TableCell>
                       <Chip
                         label={record.status}
                         size="small"
@@ -343,7 +462,7 @@ function EmployeeAttendance() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={4} align="center">
+                  <TableCell colSpan={5} align="center">
                     <Typography color="text.secondary" sx={{ py: 3 }}>
                       No attendance history available
                     </Typography>
@@ -358,4 +477,4 @@ function EmployeeAttendance() {
   );
 }
 
-export default EmployeeAttendance;
+export default WaiterAttendance;

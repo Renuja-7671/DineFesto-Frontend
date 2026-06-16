@@ -69,7 +69,6 @@ const statusColors = {
 const typeColors = {
   DINE_IN: 'primary',
   TAKEAWAY: 'secondary',
-  DELIVERY: 'success',
 };
 
 function OrdersManagement() {
@@ -465,10 +464,10 @@ function OrdersManagement() {
             >
               <MenuItem value="ALL">All Status</MenuItem>
               <MenuItem value="PENDING">Pending</MenuItem>
-              <MenuItem value="CONFIRMED">Confirmed</MenuItem>
               <MenuItem value="PREPARING">Preparing</MenuItem>
               <MenuItem value="READY">Ready</MenuItem>
-              <MenuItem value="DELIVERED">Delivered</MenuItem>
+              <MenuItem value="SERVED">Served</MenuItem>
+              <MenuItem value="COMPLETED">Completed</MenuItem>
               <MenuItem value="CANCELLED">Cancelled</MenuItem>
             </TextField>
           </Grid>
@@ -660,7 +659,7 @@ function OrdersManagement() {
                             </Typography>
                           </Box>
                         }
-                        secondary={item.specialInstructions}
+                        secondary={item.specialInstructions || item.customization}
                       />
                     </ListItem>
                     {index < selectedOrder.orderItems.length - 1 && <Divider />}
@@ -799,7 +798,6 @@ function OrdersManagement() {
                   >
                     <MenuItem value="DINE_IN">Dine In</MenuItem>
                     <MenuItem value="TAKEAWAY">Takeaway</MenuItem>
-                    <MenuItem value="ONLINE_DELIVERY">Online Delivery</MenuItem>
                   </Select>
                   {newOrderErrors.type && (
                     <FormHelperText>{newOrderErrors.type}</FormHelperText>

@@ -39,6 +39,7 @@ import {
   FilterList as FilterIcon,
   AddCircle as AddCircleIcon,
   RemoveCircle as RemoveCircleIcon,
+  NoMeals as NoMealsIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
 import { getToken } from '../../utils/auth';
@@ -409,10 +410,11 @@ function InventoryManagement() {
                 <TableCell sx={{ fontWeight: 600 }}>Item Name</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Quantity</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Unit</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Reorder Level</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Low Stock Notification Level</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Cost/Unit</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Total Value</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Menu Items</TableCell>
                 <TableCell sx={{ fontWeight: 600 }} align="right">
                   Actions
                 </TableCell>
@@ -421,13 +423,13 @@ function InventoryManagement() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center">
+                  <TableCell colSpan={9} align="center">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : filteredItems.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center">
+                  <TableCell colSpan={9} align="center">
                     No inventory items found
                   </TableCell>
                 </TableRow>
@@ -457,15 +459,43 @@ function InventoryManagement() {
                       {formatCurrency(parseFloat(item.quantity) * parseFloat(item.costPerUnit))}
                     </TableCell>
                     <TableCell>
-                      {isLowStock(item) ? (
+                      {parseFloat(item.quantity) <= 0 ? (
+                        <Chip
+                          label="Out of Stock"
+                          color="error"
+                          size="small"
+                          icon={<WarningIcon />}
+                        />
+                      ) : isLowStock(item) ? (
                         <Chip
                           label="Low Stock"
-                          color="error"
+                          color="warning"
                           size="small"
                           icon={<WarningIcon />}
                         />
                       ) : (
                         <Chip label="In Stock" color="success" size="small" />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {(item.menuItemsUsingCount ?? 0) > 0 ? (
+                        <Tooltip
+                          title={
+                            parseFloat(item.quantity) <= 0
+                              ? `${item.menuItemsUsingCount} menu item(s) are now unavailable`
+                              : `Used in ${item.menuItemsUsingCount} menu item recipe(s)`
+                          }
+                        >
+                          <Chip
+                            label={`${item.menuItemsUsingCount} item(s)`}
+                            size="small"
+                            color={parseFloat(item.quantity) <= 0 ? 'error' : 'default'}
+                            icon={parseFloat(item.quantity) <= 0 ? <NoMealsIcon /> : undefined}
+                            variant={parseFloat(item.quantity) <= 0 ? 'filled' : 'outlined'}
+                          />
+                        </Tooltip>
+                      ) : (
+                        <Typography variant="caption" color="text.disabled">—</Typography>
                       )}
                     </TableCell>
                     <TableCell align="right">
@@ -556,7 +586,7 @@ function InventoryManagement() {
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Reorder Level"
+                label="Low Stock Notification Level"
                 type="number"
                 value={formData.reorderLevel}
                 onChange={(e) => setFormData({ ...formData, reorderLevel: e.target.value })}
